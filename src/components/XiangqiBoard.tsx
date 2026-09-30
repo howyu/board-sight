@@ -2,7 +2,8 @@ import { FC, useMemo, useState } from 'react';
 import { calculateControlMap } from '../core/controlMap';
 import { xiangqiControlAdapter } from '../games/xiangqi/controlAdapter';
 import { createInitialXiangqiBoard } from '../games/xiangqi/initialBoard';
-import { XiangqiPiece, XiangqiPieceType } from '../games/xiangqi/types';
+import { applyXiangqiMove, getLegalMovesForPiece, hasAnyLegalMove, isGeneralInCheck } from '../games/xiangqi/legalRules';
+import { XiangqiColor, XiangqiPiece, XiangqiPieceType } from '../games/xiangqi/types';
 
 const labels: Record<XiangqiPieceType, { red: string; black: string }> = {
   general: { red: '帅', black: '将' },
@@ -20,7 +21,8 @@ export const XiangqiBoard: FC = () => {
   const [showControl, setShowControl] = useState(true);
   const [selected, setSelected] = useState<{ row: number; col: number } | null>(null);
   const [inspected, setInspected] = useState<{ row: number; col: number } | null>(null);
-  const [turn, setTurn] = useState<'red' | 'black'>('red');
+  const [turn, setTurn] = useState<XiangqiColor>('red');
+  const [winner, setWinner] = useState<XiangqiColor | null>(null);
   const [history, setHistory] = useState<Array<{ board: (XiangqiPiece | null)[][]; turn: 'red' | 'black' }>>([]);
   const control = useMemo(() => calculateControlMap(board, xiangqiControlAdapter), [board]);
   const selectedSquares = useMemo(() => {
@@ -36,18 +38,19 @@ export const XiangqiBoard: FC = () => {
 
   const legalMoves = useMemo(() => {
     if (!selected) return new Set<string>();
-    const piece = board[selected.row][selected.col];
-    if (!piece) return new Set<string>();
     return new Set(
-      xiangqiControlAdapter.getControlledSquares(board, selected.row, selected.col, piece)
-        .filter((p) => board[p.row][p.col]?.color !== piece.color)
+      getLegalMovesForPiece(board, selected.row, selected.col)
         .map((p) => `${p.row}-${p.col}`)
     );
   }, [board, selected]);
 
+  const inCheck = !editMode && !winner && isGeneralInCheck(board, turn);
+
   const handlePointClick = (row: number, col: number) => {
     setInspected({ row, col });
     const piece = board[row][col];
+
+    if (winner && !editMode) return;
 
     if (editMode && selected) {
       if (selected.row === row && selected.col === col) {
@@ -66,14 +69,14 @@ export const XiangqiBoard: FC = () => {
       const movingPiece = board[selected.row][selected.col];
       const targetKey = `${row}-${col}`;
       if (movingPiece && legalMoves.has(targetKey)) {
-        const next = board.map((boardRow) => [...boardRow]);
-        next[row][col] = movingPiece;
-        next[selected.row][selected.col] = null;
+        const next = applyXiangqiMove(board, selected, { row, col });
+        const opponent: XiangqiColor = movingPiece.color === 'red' ? 'black' : 'red';
         setHistory((items) => [...items, { board: board.map((boardRow) => [...boardRow]), turn }]);
         setBoard(next);
         setSelected(null);
         setInspected({ row, col });
-        setTurn(movingPiece.color === 'red' ? 'black' : 'red');
+        setTurn(opponent);
+        if (!hasAnyLegalMove(next, opponent)) setWinner(movingPiece.color);
         return;
       }
     }
@@ -89,6 +92,7 @@ export const XiangqiBoard: FC = () => {
     setHistory((items) => items.slice(0, -1));
     setSelected(null);
     setInspected(null);
+    setWinner(null);
   };
 
   const reset = () => {
@@ -96,6 +100,7 @@ export const XiangqiBoard: FC = () => {
     setSelected(null);
     setInspected(null);
     setTurn('red');
+    setWinner(null);
     setHistory([]);
   };
 
@@ -118,7 +123,12 @@ export const XiangqiBoard: FC = () => {
     <div className='flex flex-col gap-5'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <div className='flex items-center gap-3'><h2 className='font-serif text-xl font-semibold tracking-[0.12em] text-amber-100'>中国象棋 · 棋势</h2><span className={`rounded-full border px-2 py-0.5 text-xs ${turn === 'red' ? 'border-red-700/70 text-red-300' : 'border-stone-500 text-stone-200'}`}>{turn === 'red' ? '红方行棋' : '黑方行棋'}</span></div>
+          <div className='flex flex-wrap items-center gap-3'>
+            <h2 className='font-serif text-xl font-semibold tracking-[0.12em] text-amber-100'>中国象棋 · 棋势</h2>
+            <span className={`rounded-full border px-2 py-0.5 text-xs ${turn === 'red' ? 'border-red-700/70 text-red-300' : 'border-stone-500 text-stone-200'}`}>{turn === 'red' ? '红方行棋' : '黑方行棋'}</span>
+            {inCheck && <span className='rounded-full border border-orange-500/80 bg-orange-950/50 px-2 py-0.5 text-xs font-semibold text-orange-300'>将军 · 必须应将</span>}
+            {winner && <span className='rounded-full border border-amber-400/80 bg-amber-950/60 px-2 py-0.5 text-xs font-semibold text-amber-200'>{winner === 'red' ? '红方' : '黑方'}胜</span>}
+          </div>
           <p className='mt-1 text-xs text-stone-400'>棋子落在线的交点上。点选棋子查看其行棋与控制范围，点选交点查看双方势力来源。</p>
         </div>
         <div className='flex flex-wrap gap-2'>
@@ -219,6 +229,6 @@ export const XiangqiBoard: FC = () => {
           <span className='text-stone-200'>黑方 {inspectedControl.counts.black}（{describe(inspectedControl.pieces.black)}）</span>
         </div>
       )}
-      <div className='text-center text-xs leading-5 text-stone-400'>绿点：可移动位置 · 红色大圈：可吃子目标 · 红/黑小圈：双方控制 · 紫圈：双方争夺 · 金色：当前棋子的控制范围 · 悔棋可连续撤销已走步数</div>
+      <div className='text-center text-xs leading-5 text-stone-400'>绿点：合法移动 · 红色大圈：合法吃子 · 已自动排除送将与将帅照面的着法 · 被将军时只能应将 · 无合法着法则判负 · 悔棋可连续撤销</div>
     </div>
   );};
