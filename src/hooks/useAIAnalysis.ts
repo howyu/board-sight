@@ -57,8 +57,6 @@ const analyzePosition = (
   // 2. 势力评估
   let whiteControlTotal = 0;
   let blackControlTotal = 0;
-  let whiteControlWeighted = 0;
-  let blackControlWeighted = 0;
   const keySquares: string[] = [];
   const centerSquares = [[3, 3], [3, 4], [4, 3], [4, 4]]; // d4, d5, e4, e5
   const files = 'abcdefgh';
@@ -69,8 +67,6 @@ const analyzePosition = (
       const d = domination[r][c];
       whiteControlTotal += d.white;
       blackControlTotal += d.black;
-      whiteControlWeighted += d.whitePieces.reduce((s, p) => s + (PIECE_VALUES[p.type as keyof typeof PIECE_VALUES] || 0), 0);
-      blackControlWeighted += d.blackPieces.reduce((s, p) => s + (PIECE_VALUES[p.type as keyof typeof PIECE_VALUES] || 0), 0);
 
       // 识别关键格
       const isCenter = centerSquares.some(([cr, cc]) => cr === r && cc === c);
@@ -212,7 +208,7 @@ export const useAIAnalysis = () => {
           moves.length
         );
         setAnalysis(result);
-      } catch (e) {
+      } catch {
         setError('分析失败，请重试');
       }
       setIsLoading(false);
