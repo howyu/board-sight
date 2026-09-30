@@ -5,6 +5,7 @@ import { createInitialXiangqiBoard } from '../games/xiangqi/initialBoard';
 import { applyXiangqiMove, getCheckThreats, getIllegalMoveReason, getLegalMovesForPiece, hasAnyLegalMove, isGeneralInCheck } from '../games/xiangqi/legalRules';
 import { formatXiangqiMove } from '../games/xiangqi/notation';
 import { XiangqiColor, XiangqiPiece, XiangqiPieceType } from '../games/xiangqi/types';
+import { analyzeWithPikafish } from '../engine/pikafishClient';
 
 const labels: Record<XiangqiPieceType, { red: string; black: string }> = {
   general: { red: '帅', black: '将' },
@@ -33,6 +34,8 @@ interface MoveSuggestion {
   score: number;
   tags: string[];
   replyNotation?: string;
+  depth?: number;
+  pv?: string[];
   from: { row: number; col: number };
   to: { row: number; col: number };
 }
@@ -132,6 +135,7 @@ export const XiangqiBoard: FC = () => {
   const [suggestions, setSuggestions] = useState<MoveSuggestion[]>([]);
   const [analysisBusy, setAnalysisBusy] = useState(false);
   const [analysisPreview, setAnalysisPreview] = useState<number | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [moveRecords, setMoveRecords] = useState<XiangqiMoveRecord[]>([]);
   const [reviewIndex, setReviewIndex] = useState<number | null>(null);
   const [history, setHistory] = useState<Array<{
@@ -241,70 +245,65 @@ export const XiangqiBoard: FC = () => {
     setSelected(piece && piece.color === turn ? { row, col } : null);
   };
 
-  const analyzeCurrentPosition = () => {
-    if (winner || editMode) return;
+  const analyzeCurrentPosition = async () => {
+    if (winner || editMode || reviewIndex !== null) return;
     setAnalysisBusy(true);
     setAnalysisPreview(null);
-    window.setTimeout(() => {
-      const opponent: XiangqiColor = turn === 'red' ? 'black' : 'red';
-      const candidates: MoveSuggestion[] = [];
+    setAnalysisError(null);
+    setSuggestions([]);
 
-      allLegalMoves(board, turn).forEach(({ piece, from, to }) => {
-        const captured = board[to.row][to.col];
-        const next = applyXiangqiMove(board, from, to);
-        const tags: string[] = [];
-        if (captured) tags.push('吃子');
-        if (isGeneralInCheck(next, opponent)) tags.push('将军');
-
-        let score = 1_000_000;
-        let replyNotation: string | undefined;
-
-        if (!hasAnyLegalMove(next, opponent)) {
-          tags.unshift('胜势');
-        } else {
-          const replies = allLegalMoves(next, opponent);
-          let worstScore = Number.POSITIVE_INFINITY;
-
-          replies.forEach((reply) => {
-            const afterReply = applyXiangqiMove(next, reply.from, reply.to);
-            const replyScore = !hasAnyLegalMove(afterReply, turn)
-              ? -1_000_000
-              : evaluateBoard(afterReply, turn);
-
-            if (replyScore < worstScore) {
-              worstScore = replyScore;
-              replyNotation = formatXiangqiMove(reply.piece, reply.from, reply.to);
-            }
-          });
-
-          score = worstScore;
+    try {
+      const engineSuggestions = await analyzeWithPikafish(board, turn, { movetime: 3500, multiPv: 3 });
+      const mapped: MoveSuggestion[] = engineSuggestions.map((suggestion) => {
+        const piece = board[suggestion.from.row]?.[suggestion.from.col];
+        if (!piece) {
+          return {
+            notation: suggestion.move,
+            score: suggestion.scoreCp ?? 0,
+            tags: ['Pikafish'],
+            depth: suggestion.depth,
+            pv: suggestion.pv,
+            from: suggestion.from,
+            to: suggestion.to,
+          };
         }
 
-        const before = control[from.row][from.col];
-        const beforeAttack = turn === 'red' ? before.counts.black : before.counts.red;
-        const beforeDefense = turn === 'red' ? before.counts.red : before.counts.black;
-        const nextMap = calculateControlMap(next, xiangqiControlAdapter);
-        const after = nextMap[to.row][to.col];
-        const afterAttack = turn === 'red' ? after.counts.black : after.counts.red;
-        const afterDefense = turn === 'red' ? after.counts.red : after.counts.black;
-        if (beforeAttack > 0 && afterAttack === 0) tags.push('脱险');
-        else if (afterDefense > beforeDefense) tags.push('加强保护');
+        const firstMoveBoard = applyXiangqiMove(board, suggestion.from, suggestion.to);
+        let replyNotation: string | undefined;
+        const reply = suggestion.pv[1];
+        if (reply && /^[a-i][0-9][a-i][0-9]$/.test(reply)) {
+          const file = (sq: string) => sq.charCodeAt(0) - 97;
+          const row = (sq: string) => 9 - Number(sq[1]);
+          const replyFrom = { row: row(reply.slice(0, 2)), col: file(reply.slice(0, 2)) };
+          const replyTo = { row: row(reply.slice(2, 4)), col: file(reply.slice(2, 4)) };
+          const replyPiece = firstMoveBoard[replyFrom.row]?.[replyFrom.col];
+          if (replyPiece) replyNotation = formatXiangqiMove(replyPiece, replyFrom, replyTo);
+        }
 
-        candidates.push({
-          notation: formatXiangqiMove(piece, from, to),
-          score,
+        const tags: string[] = ['Pikafish'];
+        if (board[suggestion.to.row][suggestion.to.col]) tags.push('吃子');
+
+        return {
+          notation: formatXiangqiMove(piece, suggestion.from, suggestion.to),
+          score: suggestion.mate
+            ? (suggestion.mate > 0 ? 1_000_000 - suggestion.mate : -1_000_000 - suggestion.mate)
+            : suggestion.scoreCp ?? 0,
           tags: tags.slice(0, 2),
           replyNotation,
-          from,
-          to,
-        });
+          depth: suggestion.depth,
+          pv: suggestion.pv,
+          from: suggestion.from,
+          to: suggestion.to,
+        };
       });
 
-      setSuggestions(candidates.sort((a, b) => b.score - a.score).slice(0, 3));
+      setSuggestions(mapped);
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Pikafish 分析失败。');
+    } finally {
       setAnalysisBusy(false);
-    }, 20);
+    }
   };
-
   const undo = () => {
     const previous = history[history.length - 1];
     if (!previous) return;
@@ -320,6 +319,7 @@ export const XiangqiBoard: FC = () => {
     setWinner(null);
     setSuggestions([]);
     setAnalysisPreview(null);
+    setAnalysisError(null);
   };
 
   const reset = () => {
@@ -335,6 +335,7 @@ export const XiangqiBoard: FC = () => {
     setReviewIndex(null);
     setSuggestions([]);
     setAnalysisPreview(null);
+    setAnalysisError(null);
   };
 
   const inspectedControl = inspected ? control[inspected.row][inspected.col] : null;
@@ -513,7 +514,7 @@ export const XiangqiBoard: FC = () => {
             <div className='mb-2 flex items-center justify-between gap-2'>
               <div>
                 <div className='font-medium text-stone-100'>下一步建议</div>
-                <div className='mt-0.5 text-[10px] text-stone-500'>两层预分析 · 已考虑对手最佳应手 · Pikafish 接入前</div>
+                <div className='mt-0.5 text-[10px] text-stone-500'>Pikafish · MultiPV 3 · 浏览器本地计算</div>
               </div>
               <button
                 onClick={analyzeCurrentPosition}
@@ -523,8 +524,9 @@ export const XiangqiBoard: FC = () => {
                 {analysisBusy ? '计算中…' : '分析当前局面'}
               </button>
             </div>
+            {analysisError && <div className='mb-2 rounded border border-red-900/70 bg-red-950/30 px-2 py-1.5 text-red-300'>{analysisError}</div>}
             {suggestions.length === 0 ? (
-              <div className='text-stone-500'>点击分析后给出 3 个候选着，并先假设对手会选择最不利于你的回应。仍是浅层搜索，不代表专业引擎棋力。</div>
+              <div className='text-stone-500'>点击后由 Pikafish 搜索当前局面，返回 3 个候选着及主变化。首次使用需加载 WASM 与 NNUE，可能稍慢。</div>
             ) : (
               <div className='space-y-1'>
                 {suggestions.map((suggestion, index) => (
@@ -537,7 +539,8 @@ export const XiangqiBoard: FC = () => {
                       <span className='mr-1 text-stone-500'>#{index + 1}</span>
                       <span className='font-medium text-stone-100'>{suggestion.notation}</span>
                       {suggestion.tags.length > 0 && <span className='ml-2 text-[10px] text-sky-300'>{suggestion.tags.join(' · ')}</span>}
-                      {suggestion.replyNotation && <span className='mt-0.5 block pl-5 text-[10px] text-stone-500'>预计对手：{suggestion.replyNotation}</span>}
+                      {suggestion.replyNotation && <span className='mt-0.5 block pl-5 text-[10px] text-stone-500'>Pikafish 主变化：对手 {suggestion.replyNotation}</span>}
+                      {suggestion.depth && <span className='mt-0.5 block pl-5 text-[9px] text-stone-600'>搜索深度 D{suggestion.depth}</span>}
                     </span>
                     <span className='text-[10px] tabular-nums text-stone-500'>
                       {suggestion.score >= 999000 ? '胜势' : `${suggestion.score >= 0 ? '+' : ''}${(suggestion.score / 100).toFixed(1)}`}
