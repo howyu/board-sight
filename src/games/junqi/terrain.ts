@@ -3,7 +3,7 @@ import { JunqiPosition } from './types';
 export const JUNQI_ROWS = 12;
 export const JUNQI_COLS = 5;
 
-const key = (row: number, col: number) => `${row}-${col}`;
+export const positionKey = (row: number, col: number) => `${row}-${col}`;
 
 export const campKeys = new Set([
   '1-1', '1-3', '2-2', '3-1', '3-3',
@@ -14,22 +14,23 @@ export const headquartersKeys = new Set([
   '0-1', '0-3', '11-1', '11-3',
 ]);
 
-// Standard two-player Junqi rail layout:
-// - left/right vertical rails from rows 2..11 in human numbering
-// - horizontal rails on rows 2, 6, 7 and 11
-export const railwayKeys = new Set<string>();
+const line = (positions: JunqiPosition[]) =>
+  positions.map((p) => positionKey(p.row, p.col));
 
-for (let col = 0; col < JUNQI_COLS; col += 1) {
-  [1, 5, 6, 10].forEach((row) => railwayKeys.add(key(row, col)));
-}
-for (let row = 1; row <= 10; row += 1) {
-  railwayKeys.add(key(row, 0));
-  railwayKeys.add(key(row, 4));
-}
+export const railwayLines: string[][] = [
+  line(Array.from({ length: 10 }, (_, i) => ({ row: i + 1, col: 0 }))),
+  line(Array.from({ length: 10 }, (_, i) => ({ row: i + 1, col: 4 }))),
+  line(Array.from({ length: 5 }, (_, col) => ({ row: 1, col }))),
+  line(Array.from({ length: 5 }, (_, col) => ({ row: 5, col }))),
+  line(Array.from({ length: 5 }, (_, col) => ({ row: 6, col }))),
+  line(Array.from({ length: 5 }, (_, col) => ({ row: 10, col }))),
+];
 
-export const isCamp = (row: number, col: number) => campKeys.has(key(row, col));
-export const isHeadquarters = (row: number, col: number) => headquartersKeys.has(key(row, col));
-export const isRailway = (row: number, col: number) => railwayKeys.has(key(row, col));
+export const railwayKeys = new Set(railwayLines.flat());
+
+export const isCamp = (row: number, col: number) => campKeys.has(positionKey(row, col));
+export const isHeadquarters = (row: number, col: number) => headquartersKeys.has(positionKey(row, col));
+export const isRailway = (row: number, col: number) => railwayKeys.has(positionKey(row, col));
 
 export const insideJunqiBoard = (row: number, col: number) =>
   row >= 0 && row < JUNQI_ROWS && col >= 0 && col < JUNQI_COLS;
@@ -46,13 +47,10 @@ export const roadNeighbors = ({ row, col }: JunqiPosition): JunqiPosition[] => {
     { row, col: col + 1 },
   ].filter((p) => insideJunqiBoard(p.row, p.col));
 
-  // Across the mountain boundary there are only three bridges:
-  // left, center and right (columns 0, 2, 4).
   const orthogonal = candidates.filter(
     (p) => !crossesCenterBoundary(origin, p) || [0, 2, 4].includes(col)
   );
 
-  // Camps are connected diagonally to their surrounding stations.
   const diagonals = [
     { row: row - 1, col: col - 1 },
     { row: row - 1, col: col + 1 },
@@ -65,18 +63,28 @@ export const roadNeighbors = ({ row, col }: JunqiPosition): JunqiPosition[] => {
   );
 
   const unique = new Map<string, JunqiPosition>();
-  [...orthogonal, ...diagonals].forEach((p) => unique.set(key(p.row, p.col), p));
+  [...orthogonal, ...diagonals].forEach((p) => unique.set(positionKey(p.row, p.col), p));
   return [...unique.values()];
 };
 
-export const railwayDirections = (row: number, col: number): JunqiPosition[] => {
-  if (!isRailway(row, col)) return [];
-  const dirs: JunqiPosition[] = [];
-  if ([1, 5, 6, 10].includes(row)) {
-    dirs.push({ row: 0, col: -1 }, { row: 0, col: 1 });
-  }
-  if (col === 0 || col === 4) {
-    dirs.push({ row: -1, col: 0 }, { row: 1, col: 0 });
-  }
-  return dirs;
+export const getRailLinesThrough = (row: number, col: number): string[][] => {
+  const key = positionKey(row, col);
+  return railwayLines.filter((railLine) => railLine.includes(key));
+};
+
+export const railNeighbors = ({ row, col }: JunqiPosition): JunqiPosition[] => {
+  const key = positionKey(row, col);
+  const neighbors = new Map<string, JunqiPosition>();
+
+  railwayLines.forEach((railLine) => {
+    const index = railLine.indexOf(key);
+    if (index < 0) return;
+    [index - 1, index + 1].forEach((neighborIndex) => {
+      if (neighborIndex < 0 || neighborIndex >= railLine.length) return;
+      const [r, c] = railLine[neighborIndex].split('-').map(Number);
+      neighbors.set(railLine[neighborIndex], { row: r, col: c });
+    });
+  });
+
+  return [...neighbors.values()];
 };
