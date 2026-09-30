@@ -33,14 +33,14 @@ const CountMarks: FC<{ count: number; kind: 'attack' | 'defense' }> = ({ count, 
   const tone = kind === 'attack' ? 'text-[#a5231c]' : 'text-[#45513d]';
   if (count <= 3) {
     return (
-      <span className={`flex items-center -space-x-1.5 ${tone}`} aria-label={`${kind === 'attack' ? '被攻击' : '被保护'} ${count} 次`}>
+      <span className={`flex flex-col items-center -space-y-1.5 ${tone}`} aria-label={`${kind === 'attack' ? '被攻击' : '被保护'} ${count} 次`}>
         {Array.from({ length: count }).map((_, index) => <Icon key={index} compact />)}
       </span>
     );
   }
   return (
-    <span className={`flex items-center gap-0.5 ${tone}`} aria-label={`${kind === 'attack' ? '被攻击' : '被保护'} ${count} 次`}>
-      <Icon /><span className='text-[9px] font-bold leading-none'>{count}</span>
+    <span className={`flex flex-col items-center gap-0 ${tone}`} aria-label={`${kind === 'attack' ? '被攻击' : '被保护'} ${count} 次`}>
+      <Icon /><span className='text-[8px] font-bold leading-none'>{count}</span>
     </span>
   );
 };
@@ -256,19 +256,19 @@ export const XiangqiBoard: FC = () => {
                   {piece && (
                     <>
                       {selectedControl && <span className='absolute h-[46px] w-[46px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
-                      <span className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-[21px] font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
-                        {labels[piece.type][piece.color]}
-                      </span>
-                      {showControl && (
-                        <>
-                          <span className='pointer-events-none absolute bottom-0.5 left-1 z-30' title={`被对方攻击 ${attackCount} 次`}>
+                      <span className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-[20px] font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
+                        {showControl && attackCount > 0 && (
+                          <span className='pointer-events-none absolute left-1 top-1/2 z-20 -translate-y-1/2' title={`被对方攻击 ${attackCount} 次`}>
                             <CountMarks count={attackCount} kind='attack' />
                           </span>
-                          <span className='pointer-events-none absolute bottom-0.5 right-1 z-30' title={`被己方保护 ${defenseCount} 次`}>
+                        )}
+                        <span className='relative z-10'>{labels[piece.type][piece.color]}</span>
+                        {showControl && defenseCount > 0 && (
+                          <span className='pointer-events-none absolute right-1 top-1/2 z-20 -translate-y-1/2' title={`被己方保护 ${defenseCount} 次`}>
                             <CountMarks count={defenseCount} kind='defense' />
                           </span>
-                        </>
-                      )}
+                        )}
+                      </span>
                     </>
                   )}
                 </button>
@@ -294,8 +294,8 @@ export const XiangqiBoard: FC = () => {
 
           <div className='rounded-xl border border-stone-700/70 bg-stone-900/55 p-3 text-xs leading-5 text-stone-400'>
             <div className='mb-1 font-medium text-stone-200'>读盘提示</div>
-            <div className='flex items-center gap-2'><span className='inline-flex items-center gap-1 text-[#d4775f]'><AttackIcon /><AttackIcon /></span><span>左下角：被对方攻击次数（1–3 次直接重复双剑）</span></div>
-            <div className='flex items-center gap-2'><span className='inline-flex items-center gap-1 text-[#879270]'><DefenseIcon /><DefenseIcon /></span><span>右下角：被己方保护次数（1–3 次直接重复盾牌）</span></div>
+            <div className='flex items-center gap-2'><span className='inline-flex items-center gap-1 text-[#d4775f]'><AttackIcon /><AttackIcon /></span><span>棋子内左侧：被对方攻击次数（1–3 次纵向重复双剑）</span></div>
+            <div className='flex items-center gap-2'><span className='inline-flex items-center gap-1 text-[#879270]'><DefenseIcon /><DefenseIcon /></span><span>棋子内右侧：被己方保护次数（1–3 次纵向重复盾牌）</span></div>
             <div className='mt-1'>绿点：合法移动 · 红圈：合法吃子 · 浅棕：上一手 · 橙色：将军线路</div>
           </div>
 
