@@ -1,7 +1,7 @@
 {
-  "name": "Chess Attack - 国际象棋势力可视化",
-  "short_name": "Chess Attack",
-  "description": "在棋盘上实时显示双方势力范围，让看不见的局面变成可见的视觉直觉。",
+  "name": "BoardSight · 棋势",
+  "short_name": "BoardSight",
+  "description": "可视化国际象棋与中国象棋的控制范围、压力与争夺区域。",
   "icons": [
     {
       "src": "android-chrome-192x192.png",
@@ -29,5 +29,8 @@
   "start_url": "./",
   "scope": "./",
   "lang": "zh-CN",
-  "categories": ["games", "education"]
+  "categories": [
+    "games",
+    "education"
+  ]
 }
