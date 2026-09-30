@@ -42,7 +42,7 @@ export const Piece: FC<PieceProps> = ({ type, color, small }) => {
       <img
         src={pieceImages[type][color]}
         alt={`${color} ${type}`}
-        className='w-[80%] h-[80%] object-contain'
+        className='w-[84%] h-[84%] object-contain drop-shadow-[0_3px_2px_rgba(15,23,42,0.38)] transition-transform duration-150 group-hover:scale-[1.03]'
       />
     </div>
   );
