@@ -14,9 +14,9 @@ export const headquartersKeys = new Set([
   '0-1', '0-3', '11-1', '11-3',
 ]);
 
-// MVP topology follows the common 12×5 two-player board: outer vertical
-// railways plus the major horizontal railway corridors. The graph is kept
-// isolated here so it can be replaced by a competition-grade topology later.
+// Standard two-player Junqi rail layout:
+// - left/right vertical rails from rows 2..11 in human numbering
+// - horizontal rails on rows 2, 6, 7 and 11
 export const railwayKeys = new Set<string>();
 
 for (let col = 0; col < JUNQI_COLS; col += 1) {
@@ -34,23 +34,39 @@ export const isRailway = (row: number, col: number) => railwayKeys.has(key(row, 
 export const insideJunqiBoard = (row: number, col: number) =>
   row >= 0 && row < JUNQI_ROWS && col >= 0 && col < JUNQI_COLS;
 
+const crossesCenterBoundary = (a: JunqiPosition, b: JunqiPosition) =>
+  (a.row === 5 && b.row === 6) || (a.row === 6 && b.row === 5);
+
 export const roadNeighbors = ({ row, col }: JunqiPosition): JunqiPosition[] => {
+  const origin = { row, col };
   const candidates: JunqiPosition[] = [
     { row: row - 1, col },
     { row: row + 1, col },
     { row, col: col - 1 },
     { row, col: col + 1 },
-  ];
+  ].filter((p) => insideJunqiBoard(p.row, p.col));
 
-  // Camps connect diagonally to their surrounding stations.
+  // Across the mountain boundary there are only three bridges:
+  // left, center and right (columns 0, 2, 4).
+  const orthogonal = candidates.filter(
+    (p) => !crossesCenterBoundary(origin, p) || [0, 2, 4].includes(col)
+  );
+
+  // Camps are connected diagonally to their surrounding stations.
   const diagonals = [
     { row: row - 1, col: col - 1 },
     { row: row - 1, col: col + 1 },
     { row: row + 1, col: col - 1 },
     { row: row + 1, col: col + 1 },
-  ].filter((p) => insideJunqiBoard(p.row, p.col) && (isCamp(row, col) || isCamp(p.row, p.col)));
+  ].filter(
+    (p) =>
+      insideJunqiBoard(p.row, p.col) &&
+      (isCamp(row, col) || isCamp(p.row, p.col))
+  );
 
-  return [...candidates.filter((p) => insideJunqiBoard(p.row, p.col)), ...diagonals];
+  const unique = new Map<string, JunqiPosition>();
+  [...orthogonal, ...diagonals].forEach((p) => unique.set(key(p.row, p.col), p));
+  return [...unique.values()];
 };
 
 export const railwayDirections = (row: number, col: number): JunqiPosition[] => {
