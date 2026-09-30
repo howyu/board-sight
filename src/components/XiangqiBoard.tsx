@@ -40,61 +40,6 @@ interface MoveSuggestion {
   to: { row: number; col: number };
 }
 
-const pieceValues: Record<XiangqiPieceType, number> = {
-  general: 10000,
-  chariot: 900,
-  cannon: 450,
-  horse: 400,
-  elephant: 200,
-  advisor: 200,
-  soldier: 100,
-};
-
-const evaluateBoard = (position: (XiangqiPiece | null)[][], perspective: XiangqiColor) => {
-  const map = calculateControlMap(position, xiangqiControlAdapter);
-  let score = 0;
-  position.forEach((row, rowIndex) => row.forEach((piece, colIndex) => {
-    if (!piece) return;
-    const sign = piece.color === perspective ? 1 : -1;
-    let value = pieceValues[piece.type];
-    if (piece.type === 'soldier') {
-      const crossedRiver = piece.color === 'red' ? rowIndex <= 4 : rowIndex >= 5;
-      if (crossedRiver) value += 35;
-    }
-    const cell = map[rowIndex][colIndex];
-    const attack = piece.color === 'red' ? cell.counts.black : cell.counts.red;
-    const defense = piece.color === 'red' ? cell.counts.red : cell.counts.black;
-    if (attack > 0 && defense === 0) value -= Math.min(pieceValues[piece.type] * 0.22, 150);
-    else if (attack > defense) value -= Math.min(pieceValues[piece.type] * 0.1, 75);
-    score += sign * value;
-  }));
-  let ownControl = 0;
-  let enemyControl = 0;
-  map.forEach((row) => row.forEach((cell) => {
-    ownControl += perspective === 'red' ? cell.counts.red : cell.counts.black;
-    enemyControl += perspective === 'red' ? cell.counts.black : cell.counts.red;
-  }));
-  return score + (ownControl - enemyControl) * 2;
-};
-
-const allLegalMoves = (
-  position: (XiangqiPiece | null)[][],
-  color: XiangqiColor,
-) => {
-  const moves: Array<{
-    piece: XiangqiPiece;
-    from: { row: number; col: number };
-    to: { row: number; col: number };
-  }> = [];
-  position.forEach((row, rowIndex) => row.forEach((piece, colIndex) => {
-    if (!piece || piece.color !== color) return;
-    getLegalMovesForPiece(position, rowIndex, colIndex).forEach((to) => {
-      moves.push({ piece, from: { row: rowIndex, col: colIndex }, to });
-    });
-  }));
-  return moves;
-};
-
 const CountMarks: FC<{ count: number; kind: 'attack' | 'defense' }> = ({ count, kind }) => {
   if (count <= 0) return null;
   const Icon = kind === 'attack' ? AttackIcon : DefenseIcon;
