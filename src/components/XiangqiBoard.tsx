@@ -73,6 +73,7 @@ export const XiangqiBoard: FC = () => {
   const [board, setBoard] = useState<(XiangqiPiece | null)[][]>(() => createInitialXiangqiBoard());
   const [editMode, setEditMode] = useState(false);
   const [showControl, setShowControl] = useState(true);
+  const [isFlipped, setIsFlipped] = useState(false);
   const [selected, setSelected] = useState<{ row: number; col: number } | null>(null);
   const [inspected, setInspected] = useState<{ row: number; col: number } | null>(null);
   const [turn, setTurn] = useState<XiangqiColor>('red');
@@ -399,15 +400,15 @@ export const XiangqiBoard: FC = () => {
                 <line x1={5 * pointSize} y1={7 * pointSize} x2={3 * pointSize} y2={9 * pointSize} />
               </g>
               <g fill='#68401f' fontFamily='serif' fontSize='21' fontWeight='600' letterSpacing='5'>
-                <text x={boardWidth * 0.24} y={4.72 * pointSize} textAnchor='middle'>楚河</text>
-                <text x={boardWidth * 0.76} y={4.72 * pointSize} textAnchor='middle'>汉界</text>
+                <text x={boardWidth * 0.24} y={4.72 * pointSize} textAnchor='middle'>{isFlipped ? '汉界' : '楚河'}</text>
+                <text x={boardWidth * 0.76} y={4.72 * pointSize} textAnchor='middle'>{isFlipped ? '楚河' : '汉界'}</text>
               </g>
               <g fill='#6f4526' fontFamily='serif' fontSize='12' fontWeight='700'>
-                {['1','2','3','4','5','6','7','8','9'].map((label, col) => (
-                  <text key={`black-file-${label}`} x={col * pointSize} y='-13' textAnchor='middle'>{label}</text>
+                {(isFlipped ? ['一','二','三','四','五','六','七','八','九'] : ['1','2','3','4','5','6','7','8','9']).map((label, col) => (
+                  <text key={`top-file-${label}`} x={col * pointSize} y='-13' textAnchor='middle'>{label}</text>
                 ))}
-                {['九','八','七','六','五','四','三','二','一'].map((label, col) => (
-                  <text key={`red-file-${label}`} x={col * pointSize} y={boardHeight + 22} textAnchor='middle'>{label}</text>
+                {(isFlipped ? ['9','8','7','6','5','4','3','2','1'] : ['九','八','七','六','五','四','三','二','一']).map((label, col) => (
+                  <text key={`bottom-file-${label}`} x={col * pointSize} y={boardHeight + 22} textAnchor='middle'>{label}</text>
                 ))}
               </g>
             </svg>
@@ -437,7 +438,10 @@ export const XiangqiBoard: FC = () => {
                   key={key}
                   onClick={() => handlePointClick(rowIndex, colIndex)}
                   className='absolute z-10 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none'
-                  style={{ left: boardPadding + colIndex * pointSize, top: boardPadding + rowIndex * pointSize }}
+                  style={{
+                    left: boardPadding + (isFlipped ? 8 - colIndex : colIndex) * pointSize,
+                    top: boardPadding + (isFlipped ? 9 - rowIndex : rowIndex) * pointSize,
+                  }}
                   title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]}` : undefined}
                 >
                   {(wasLastFrom || wasLastTo) && <span className={`pointer-events-none absolute h-10 w-10 rounded-full border-2 ${wasLastTo ? 'border-amber-700/80' : 'border-amber-700/45 border-dashed'}`} />}
@@ -490,6 +494,9 @@ export const XiangqiBoard: FC = () => {
             <button onClick={reset} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>重置局面</button>
             <button onClick={() => setShowControl((v) => !v)} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>
               {showControl ? '隐藏势力提示' : '显示势力提示'}
+            </button>
+            <button onClick={() => setIsFlipped((v) => !v)} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>
+              🔄 翻转棋盘
             </button>
           </div>
 
