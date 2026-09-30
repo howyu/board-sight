@@ -2,8 +2,5 @@
   "modelVersion": "5.0.0",
   "description": "BoardSight HarmonyOS native client",
   "dependencies": {},
-  "devDependencies": {
-    "@ohos/hvigor": "5.0.4",
-    "@ohos/hvigor-ohos-plugin": "5.0.4"
-  }
+  "devDependencies": {}
 }

@@ -109,12 +109,12 @@ struct Index {
             Row() {
               ForEach(this.indexes, (displayCol: number) => {
                 Stack() {
-                  Blank()
+                  Row() {}
                     .width('100%')
                     .height('100%')
                     .backgroundColor(this.squareColor(displayRow, displayCol))
 
-                  Blank()
+                  Row() {}
                     .width('100%')
                     .height('100%')
                     .backgroundColor(
@@ -127,7 +127,7 @@ struct Index {
                     this.actualRow(displayRow),
                     this.actualCol(displayCol)
                   )) {
-                    Blank()
+                    Row() {}
                       .width('82%')
                       .height('82%')
                       .borderRadius(999)
@@ -157,7 +157,7 @@ struct Index {
                     this.actualRow(displayRow),
                     this.actualCol(displayCol)
                   )) {
-                    Blank()
+                    Row() {}
                       .width('100%')
                       .height('100%')
                       .border({ width: 3, color: '#FFD54F' })

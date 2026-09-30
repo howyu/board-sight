@@ -2,6 +2,42 @@
 
 Use this checklist when opening BoardSight in ChatGPT Work / a DevEco Studio environment.
 
+## Current status — native build verified on 2026-09-30
+
+- Official Linux Command Line Tools **26.0.0.851** installed in Work.
+- HarmonyOS SDK **26.0.0 Release**, Hvigor **6.26.8**.
+- `ohpm install`, project sync and entry debug `assembleHap` succeed.
+- ArkTS compilation, resource compilation and HAP packing pass.
+- Fresh build after deleting generated caches: **33 tasks executed, 0 up-to-date**.
+- Web build/lint, chess parity and required-resource checks all pass.
+- No active devices or existing emulator instances were found on this host.
+- Output is **unsigned**; signing and emulator/real-device launch remain pending.
+- PR #12 stays Draft until the runtime/UI acceptance criteria are verified.
+- Historical notes below describe earlier checkpoints, not the current blocker.
+
+Reproduce on a host with this official toolchain:
+
+```bash
+cd harmony
+export DEVECO_CLI_CLT_PATH=/absolute/path/to/command-line-tools
+devecocli build --modules entry --build-mode debug
+```
+
+Keep the minimum compatible SDK at `6.0.0(20)`; target SDK is explicitly
+`26.0.0`, using the new SDK version notation. Compilation uses the installed
+SDK. This build does not establish runtime compatibility with older devices.
+
+Fixes required by the actual compiler:
+
+- Remove Hvigor packages from `oh-package.json5` application dependencies;
+  add `hvigor/hvigor-config.json5` using the matching project model version.
+- Give pawn/knight position object literals explicit `Position` types.
+- Replace inferred `Array.from` initialization with typed loops for control
+  cells and initial board rows.
+- Replace `Blank` children of `Stack` with empty `Row` background layers;
+  `Blank` is only supported under Row, Column or Flex.
+- Ignore local build/cache outputs in Git.
+
 ## Target branch
 
 - Repository: `howyu/board-sight`

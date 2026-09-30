@@ -38,10 +38,11 @@ export function controlledSquares(
 ): Position[] {
   if (piece.type === 'pawn') {
     const direction: number = piece.color === 'white' ? -1 : 1
-    return [
+    const pawnSquares: Position[] = [
       { row: row + direction, col: col - 1 },
       { row: row + direction, col: col + 1 }
-    ].filter((position: Position) => isValid(position.row, position.col))
+    ]
+    return pawnSquares.filter((position: Position) => isValid(position.row, position.col))
   }
 
   if (piece.type === 'rook') {
@@ -64,7 +65,7 @@ export function controlledSquares(
       [-2, -1], [-2, 1], [-1, -2], [-1, 2],
       [1, -2], [1, 2], [2, -1], [2, 1]
     ]
-      .map((offset: number[]) => ({ row: row + offset[0], col: col + offset[1] }))
+      .map((offset: number[]): Position => ({ row: row + offset[0], col: col + offset[1] }))
       .filter((position: Position) => isValid(position.row, position.col))
   }
 
@@ -84,9 +85,15 @@ export function controlledSquares(
 }
 
 export function calculateControlMap(board: (ChessPiece | null)[][]): ControlCell[][] {
-  const map: ControlCell[][] = Array.from({ length: BOARD_SIZE }, () =>
-    Array.from({ length: BOARD_SIZE }, () => ({ white: 0, black: 0 }))
-  )
+  const map: ControlCell[][] = []
+  for (let row: number = 0; row < BOARD_SIZE; row++) {
+    const cells: ControlCell[] = []
+    for (let col: number = 0; col < BOARD_SIZE; col++) {
+      const cell: ControlCell = { white: 0, black: 0 }
+      cells.push(cell)
+    }
+    map.push(cells)
+  }
 
   board.forEach((boardRow: (ChessPiece | null)[], row: number) => {
     boardRow.forEach((piece: ChessPiece | null, col: number) => {

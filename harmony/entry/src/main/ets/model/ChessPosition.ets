@@ -4,18 +4,34 @@ function piece(type: PieceType, color: PieceColor): ChessPiece {
   return { type, color }
 }
 
+function pawnRow(color: PieceColor): (ChessPiece | null)[] {
+  const row: (ChessPiece | null)[] = []
+  for (let col: number = 0; col < 8; col++) {
+    row.push(piece('pawn', color))
+  }
+  return row
+}
+
+function emptyRow(): (ChessPiece | null)[] {
+  const row: (ChessPiece | null)[] = []
+  for (let col: number = 0; col < 8; col++) {
+    row.push(null)
+  }
+  return row
+}
+
 export function createInitialBoard(): (ChessPiece | null)[][] {
   return [
     [
       piece('rook', 'black'), piece('knight', 'black'), piece('bishop', 'black'), piece('queen', 'black'),
       piece('king', 'black'), piece('bishop', 'black'), piece('knight', 'black'), piece('rook', 'black')
     ],
-    Array.from({ length: 8 }, () => piece('pawn', 'black')),
-    Array.from({ length: 8 }, () => null),
-    Array.from({ length: 8 }, () => null),
-    Array.from({ length: 8 }, () => null),
-    Array.from({ length: 8 }, () => null),
-    Array.from({ length: 8 }, () => piece('pawn', 'white')),
+    pawnRow('black'),
+    emptyRow(),
+    emptyRow(),
+    emptyRow(),
+    emptyRow(),
+    pawnRow('white'),
     [
       piece('rook', 'white'), piece('knight', 'white'), piece('bishop', 'white'), piece('queen', 'white'),
       piece('king', 'white'), piece('bishop', 'white'), piece('knight', 'white'), piece('rook', 'white')
