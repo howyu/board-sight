@@ -5,7 +5,7 @@ const ownTypes: JunqiPieceType[] = [
   'captain', 'colonel', 'majorGeneral', 'brigadier', 'lieutenant',
   'engineer', 'bomb', 'major', 'engineer', 'captain',
   'lieutenant', 'colonel', 'marshal', 'majorGeneral', 'brigadier',
-  'mine', 'major', 'bomb', 'general', 'mine',
+  'major', 'bomb', 'mine', 'general', 'mine',
   'mine', 'flag', 'engineer', 'captain', 'lieutenant',
 ];
 
