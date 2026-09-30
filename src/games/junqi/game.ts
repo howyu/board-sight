@@ -1,5 +1,9 @@
 import { JunqiObservation, applyJunqiObservation } from './belief';
-import { JunqiObservationMap, buildCoupledBeliefs } from './beliefState';
+import {
+  JunqiObservationMap,
+  JunqiOriginMap,
+  buildCoupledBeliefs,
+} from './beliefState';
 import { canReachOnlyAsEngineer } from './sight';
 import { getLegalJunqiDestinations, resolveJunqiCombat } from './rules';
 import {
@@ -15,6 +19,7 @@ export interface JunqiGameState {
   turn: JunqiColor;
   history: JunqiMoveRecord[];
   observations: JunqiObservationMap;
+  origins: JunqiOriginMap;
   winner: JunqiColor | null;
 }
 
@@ -49,6 +54,18 @@ const revealFlag = (
   });
 };
 
+const buildOrigins = (
+  board: (JunqiPiece | null)[][]
+): JunqiOriginMap => {
+  const origins: JunqiOriginMap = {};
+  board.forEach((row, rowIndex) => {
+    row.forEach((piece, colIndex) => {
+      if (piece) origins[piece.id] = { row: rowIndex, col: colIndex };
+    });
+  });
+  return origins;
+};
+
 export const createJunqiGameState = (
   board: (JunqiPiece | null)[][]
 ): JunqiGameState => ({
@@ -56,13 +73,14 @@ export const createJunqiGameState = (
   turn: 'red',
   history: [],
   observations: {},
+  origins: buildOrigins(board),
   winner: null,
 });
 
 export const getBeliefsForState = (
   state: JunqiGameState
 ): Record<string, JunqiBelief> =>
-  buildCoupledBeliefs(state.board, state.observations);
+  buildCoupledBeliefs(state.board, state.observations, state.origins);
 
 export const applyJunqiMove = (
   state: JunqiGameState,
@@ -184,6 +202,7 @@ export const applyJunqiMove = (
       turn: nextTurn,
       history: [...state.history, record],
       observations,
+      origins: state.origins,
       winner,
     },
   };
