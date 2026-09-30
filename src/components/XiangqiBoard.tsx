@@ -385,7 +385,7 @@ export const XiangqiBoard: FC = () => {
           >
             <div className='pointer-events-none absolute inset-0 opacity-[0.13]' style={{ backgroundImage: 'repeating-linear-gradient(7deg, transparent 0, transparent 13px, rgba(90,54,25,.25) 14px, transparent 15px)' }} />
 
-            <svg className='pointer-events-none absolute' style={{ left: boardPadding, top: boardPadding }} width={boardWidth} height={boardHeight} viewBox={`0 0 ${boardWidth} ${boardHeight}`}>
+            <svg className='pointer-events-none absolute overflow-visible' style={{ left: boardPadding, top: boardPadding }} width={boardWidth} height={boardHeight} viewBox={`0 0 ${boardWidth} ${boardHeight}`}>
               <g stroke='#5d351c' strokeWidth='1.35' fill='none'>
                 {Array.from({ length: 10 }).map((_, r) => <line key={`h-${r}`} x1='0' y1={r * pointSize} x2={boardWidth} y2={r * pointSize} />)}
                 {Array.from({ length: 9 }).map((_, col) => (
