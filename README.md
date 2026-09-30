@@ -1,168 +1,63 @@
-# Chess Attack
+# BoardSight · 棋势
 
-> **国际象棋势力范围可视化训练板** —— 在棋盘上实时显示双方势力范围，让看不见的局面变成可见的视觉直觉。
+> See the board. Understand the pressure.
 
-This is a visualization of attacked chess squares using a fully functional chess game web application generated entirely through Large Language Model (LLM) interactions.
+BoardSight is an offline-first board-control visualizer. It turns invisible attack, defence and contested areas into a visible control map. The project supports international chess and Chinese chess (Xiangqi) through a shared TypeScript control-map engine.
 
-## 📄 开源引用 / Attribution
+## Current modes
 
-本项目基于 [razrinn/chess-attack](https://github.com/razrinn/chess-attack) **二次开发**，原项目采用 **MIT License**。
+- **International Chess** — playable board, legal moves, move history, PGN, square-control overlay and analysis tools.
+- **Chinese Chess / Xiangqi** — 9×10 initial position, whole-board red/black control map, per-intersection control counts, and click-a-piece control-range highlighting.
+- **Offline-first PWA** — designed for phones, tablets and desktop browsers, including travel/offline learning scenarios.
 
-- 原项目：`razrinn/chess-attack` — <https://github.com/razrinn/chess-attack>
-- 原版权声明：Copyright (c) 2024 Chess Attack Contributors（MIT）
-- 本分支新增：双方势力范围三色覆盖（蓝=白控 / 红=黑控 / 紫=争夺）、AI 局面点评、PWA 离线支持等
-
-根据 MIT 协议，本仓库完整保留原项目的许可证与版权声明（见 [LICENSE.md](./LICENSE.md)）。
-
-## 🤖 LLM Attribution
-
-This entire project, including all source code, components, and documentation, was generated through interactions with Anthropic's Claude Sonnet 3.5 using the Cline VSCode extension, and also Cursor Editor. The implementation includes sophisticated features like piece movement validation, square domination calculation, and drag-and-drop functionality, showcasing the potential of AI-assisted software development through direct IDE integration.
-
-## ♛ Assets
-
-- Piece images: https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces
-- Game sound: https://www.chess.com/forum/view/general/chessboard-sound-files
-
-## ✨ Features
-
-- **Complete Chess Rules Implementation**
-
-  - Valid move highlighting
-  - Piece movement validation
-  - Turn-based gameplay
-  - Legal move validation
-  - Checkmate detection
-  - En passant moves
-  - Castling moves
-  - Pawn promotion
-  - Check detection
-
-- **Advanced Game Analysis**
-
-  - Material advantage calculation
-  - Square domination analysis
-  - Visual domination indicators on board
-  - Piece-specific attack value calculation
-  - Weighted domination scoring
-
-- **Interactive UI Elements**
-
-  - Drag and drop piece movement
-  - Click-to-move alternative
-  - Move history with PGN notation
-  - Game status panel with advantage indicators
-  - Board coordinates (algebraic notation)
-  - Board flipping for different perspectives
-  - Sound effects for moves, captures, and special events
-  - Keyboard controls for move navigation
-  - Toggleable attack indicators
-
-- **Visual Feedback**
-  - Highlighted legal moves
-  - Square domination overlay
-  - Color-coded advantage indicators
-  - Responsive design for various screen sizes
-  - Victory celebration effects
-  - Piece attack tooltips
-  - Material advantage display
-
-## 🛠 Technical Stack
-
-- **Frontend Framework**: React with TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS
-- **State Management**: React Hooks
-- **Development Tools**: ESLint, TypeScript ESLint
-- **Audio**: Web Audio API
-- **Animation**: Canvas Confetti
-
-## 🚀 Getting Started
-
-1. Clone the repository:
-
-```bash
-git clone [repository-url]
-```
-
-2. Install dependencies:
-
-```bash
-npm install
-# or
-yarn install
-# or
-bun install
-```
-
-3. Start the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-bun dev
-```
-
-4. Open your browser and navigate to `http://localhost:5173`
-
-## 🎮 How to Play
-
-1. **Moving Pieces**
-
-   - Drag and drop pieces to valid squares
-   - Or click the piece and then click the destination square
-
-2. **Game Analysis**
-
-   - View material advantage in the status panel
-   - Monitor square control through domination indicators
-   - Review move history in the sidebar
-
-3. **Visual Indicators**
-   - Blue overlay: White-controlled squares
-   - Red overlay: Black-controlled squares
-   - Purple overlay: Contested squares
-
-## 🏗 Project Structure
+## Architecture
 
 ```
 src/
-├── components/         # React components
-│   ├── Board.tsx      # Main chess board
-│   ├── GameStatus.tsx # Game statistics
-│   ├── Piece.tsx     # Chess piece
-│   ├── Square.tsx    # Board square
-│   └── ...
-├── hooks/             # Custom React hooks
-│   ├── useChessBoard.ts    # Game logic
-│   ├── useDomination.ts    # Square control
-│   └── useDragAndDrop.ts   # Drag-n-drop
-├── ...
+├── core/
+│   └── controlMap.ts
+├── games/
+│   ├── chess/
+│   └── xiangqi/
+├── components/
+└── hooks/
 ```
 
-## 🎯 Contributing
+The core distinction is intentional: **control/attack squares are not always the same as legal moves**. BoardSight visualizes influence first; each game can separately implement move legality.
 
-We welcome contributions! Here's how you can help:
+## Xiangqi rules currently modeled
 
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+The Xiangqi control adapter includes chariot rays and blockers, horse-leg blocking, cannon screens/captures, elephant-eye blocking and river restriction, advisor/general palace restriction, flying generals, and soldier river-crossing behavior.
 
-For detailed guidelines, please see [CONTRIBUTING.md](CONTRIBUTING.md)
+## Development
 
-## 🎯 Future Enhancements
+```bash
+npm install
+npm run dev
+npm run build
+npm run lint
+```
 
-- ~~Legal move check~~
-- ~~Checkmate detection~~
-- ~~Stalemate detection~~
-- ~~En passant moves~~
-- ~~Castling moves~~
-- ~~Pawn promotion~~
-- Game export/import functionality
+React 18 + TypeScript + Vite + Tailwind CSS.
 
-## 📝 License
+## Open-source attribution
 
-This project is open source and available under the MIT License.
+BoardSight evolved from **Chess Attack** and retains the original MIT attribution. This repository is based on [razrinn/chess-attack](https://github.com/razrinn/chess-attack), licensed under the MIT License.
+
+- Original project: `razrinn/chess-attack`
+- Original copyright notice: Copyright (c) 2024 Chess Attack Contributors
+- License: see [LICENSE.md](./LICENSE.md)
+
+The original project was developed with AI-assisted tooling including Claude Sonnet 3.5/Cline and Cursor. BoardSight continues as an AI-assisted open-source project.
+
+## Roadmap
+
+1. Stabilize the shared control-map engine and regression-check international chess.
+2. Complete Xiangqi visualization and board interaction.
+3. Add training positions and explain-why-this-square-is-controlled interactions.
+4. Keep the PWA as the cross-platform offline client.
+5. Reuse the TypeScript core in a future HarmonyOS ArkTS/ArkUI native client.
+
+## License
+
+MIT. See [LICENSE.md](./LICENSE.md).
