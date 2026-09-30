@@ -128,15 +128,15 @@ export const Board: FC = () => {
           }
         />
       )}
-      <div className='flex flex-col lg:flex-row gap-4'>
-        <div className='flex flex-col gap-1'>
+      <div className='flex flex-col gap-5 lg:flex-row lg:gap-6'>
+        <div className='flex flex-col gap-2'>
           <CapturedPieces
             pieces={capturedPieces[isFlipped ? 'white' : 'black']}
             color={isFlipped ? 'white' : 'black'}
             isFlipped={isFlipped}
           />
           <Legend isFlipped={isFlipped}>
-            <div className='inline-block border-2 border-gray-800 touch-none select-none'>
+            <div className='inline-block overflow-hidden rounded-xl border border-slate-600/70 bg-slate-800 touch-none select-none shadow-[0_18px_55px_rgba(0,0,0,0.38)] ring-1 ring-white/5'>
               {(isFlipped ? [...pieces].reverse() : pieces).map(
                 (row, rowIndex) => (
                   <div key={rowIndex} className='flex'>
@@ -155,6 +155,7 @@ export const Board: FC = () => {
                               (move) =>
                                 move.row === actualRow && move.col === actualCol
                             )}
+                            isOccupied={Boolean(piece)}
                             onClick={() =>
                               handleSquareClick(actualRow, actualCol)
                             }
@@ -206,7 +207,7 @@ export const Board: FC = () => {
           />
         </div>
         <div className='flex flex-col gap-4 w-full lg:w-auto'>
-          <div className='flex gap-2 justify-center lg:justify-start'>
+          <div className='flex flex-wrap gap-2 justify-center lg:justify-start'>
             <button
               onClick={() => setIsFlipped((prev) => !prev)}
               className='p-1 px-2 bg-gray-700 rounded hover:bg-gray-600 text-gray-200 flex items-center gap-2'
