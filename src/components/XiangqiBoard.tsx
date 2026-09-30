@@ -484,19 +484,47 @@ export const XiangqiBoard: FC = () => {
         </div>
 
         <aside className='flex w-full flex-col gap-3 min-[900px]:w-64 min-[900px]:shrink-0'>
-          <div className='grid grid-cols-2 gap-2 min-[900px]:grid-cols-1'>
-            <button onClick={() => { setEditMode((v) => !v); setSelected(null); }} className={`rounded-lg border px-3 py-2 text-sm transition ${editMode ? 'border-amber-500/70 bg-amber-800/60 text-amber-100' : 'border-stone-600 bg-stone-800 text-stone-200 hover:bg-stone-700'}`}>
-              {editMode ? '结束摆棋' : '摆棋模式'}
+          <div className='flex flex-wrap items-center gap-1.5'>
+            <button
+              onClick={() => { setEditMode((v) => !v); setSelected(null); }}
+              title={editMode ? '结束摆棋模式' : '进入摆棋模式'}
+              className={`inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs font-medium transition ${editMode ? 'border-amber-500/70 bg-amber-900/60 text-amber-100' : 'border-stone-600/80 bg-stone-800/80 text-stone-200 hover:bg-stone-700'}`}
+            >
+              <span className='text-[13px]' aria-hidden='true'>✥</span>
+              {editMode ? '结束摆棋' : '摆棋'}
             </button>
-            <button onClick={undo} disabled={history.length === 0} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40'>
-              悔棋撤销{history.length > 0 ? ` · ${history.length}` : ''}
+            <button
+              onClick={undo}
+              disabled={history.length === 0}
+              title='悔棋'
+              className='inline-flex h-8 items-center gap-1 rounded-md border border-stone-600/80 bg-stone-800/80 px-2.5 text-xs font-medium text-stone-200 transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-35'
+            >
+              <span className='text-sm' aria-hidden='true'>↶</span>
+              悔棋{history.length > 0 ? ` · ${history.length}` : ''}
             </button>
-            <button onClick={reset} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>重置局面</button>
-            <button onClick={() => setShowControl((v) => !v)} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>
-              {showControl ? '隐藏势力提示' : '显示势力提示'}
+            <button
+              onClick={reset}
+              title='重置局面'
+              className='inline-flex h-8 items-center gap-1 rounded-md border border-stone-600/80 bg-stone-800/80 px-2.5 text-xs font-medium text-stone-200 transition hover:bg-stone-700'
+            >
+              <span className='text-sm' aria-hidden='true'>↺</span>
+              重置
             </button>
-            <button onClick={() => setIsFlipped((v) => !v)} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>
-              🔄 翻转棋盘
+            <button
+              onClick={() => setShowControl((v) => !v)}
+              title={showControl ? '隐藏势力提示' : '显示势力提示'}
+              className='inline-flex h-8 items-center gap-1 rounded-md border border-stone-600/80 bg-stone-800/80 px-2.5 text-xs font-medium text-stone-200 transition hover:bg-stone-700'
+            >
+              <span className='text-[12px]' aria-hidden='true'>{showControl ? '◉' : '○'}</span>
+              {showControl ? '隐藏势力' : '显示势力'}
+            </button>
+            <button
+              onClick={() => setIsFlipped((v) => !v)}
+              title='翻转棋盘'
+              className='inline-flex h-8 items-center gap-1 rounded-md border border-stone-600/80 bg-stone-800/80 px-2.5 text-xs font-medium text-stone-200 transition hover:bg-stone-700'
+            >
+              <span className='text-sm' aria-hidden='true'>↕</span>
+              翻转
             </button>
           </div>
 
