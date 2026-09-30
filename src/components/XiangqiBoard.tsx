@@ -19,6 +19,7 @@ export const XiangqiBoard: FC = () => {
   const [editMode, setEditMode] = useState(false);
   const [showControl, setShowControl] = useState(true);
   const [selected, setSelected] = useState<{ row: number; col: number } | null>(null);
+  const [inspected, setInspected] = useState<{ row: number; col: number } | null>(null);
   const control = useMemo(() => calculateControlMap(board, xiangqiControlAdapter), [board]);
   const selectedSquares = useMemo(() => {
     if (!selected) return new Set<string>();
@@ -32,6 +33,7 @@ export const XiangqiBoard: FC = () => {
   }, [board, selected]);
 
   const handlePointClick = (row: number, col: number) => {
+    setInspected({ row, col });
     const piece = board[row][col];
 
     if (editMode && selected) {
@@ -53,6 +55,17 @@ export const XiangqiBoard: FC = () => {
   const reset = () => {
     setBoard(createInitialXiangqiBoard());
     setSelected(null);
+    setInspected(null);
+  };
+
+  const inspectedControl = inspected ? control[inspected.row][inspected.col] : null;
+  const describe = (pieces: { type: XiangqiPieceType }[]) => {
+    const counts = pieces.reduce<Record<string, number>>((acc, piece) => {
+      const name = labels[piece.type].red === labels[piece.type].black ? labels[piece.type].red : labels[piece.type].red + '/' + labels[piece.type].black;
+      acc[name] = (acc[name] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(counts).map(([name, count]) => `${name}×${count}`).join('、') || '无';
   };
 
   return (
@@ -129,6 +142,13 @@ export const XiangqiBoard: FC = () => {
           ))}
         </div>
       </div>
+      {inspected && inspectedControl && (
+        <div className='rounded bg-gray-900/60 px-3 py-2 text-xs text-gray-300'>
+          <span className='text-gray-400'>当前点 ({inspected.col + 1}, {10 - inspected.row})：</span>{' '}
+          <span className='text-red-400'>红方 {inspectedControl.counts.red}（{describe(inspectedControl.pieces.red)}）</span>{' · '}
+          <span className='text-slate-300'>黑方 {inspectedControl.counts.black}（{describe(inspectedControl.pieces.black)}）</span>
+        </div>
+      )}
       <div className='text-xs text-gray-400 text-center'>红色：红方控制 · 灰黑：黑方控制 · 紫色：双方控制 · 黄色边框：当前棋子的控制点 · 摆棋模式可自由调整局面</div>
     </div>
   );
