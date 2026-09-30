@@ -179,24 +179,22 @@ export const analyzeWithPikafish = async (
       if (data.type === 'BEST_MOVE') {
         if (settled) return;
         settled = true;
-        const rows = Array.from(latest.entries())
-          .sort(([a], [b]) => a - b)
-          .map(([multipv, info]) => {
-            const move = info.pv[0] || (multipv === 1 ? data.move : '');
-            const points = uciMoveToPoints(move);
-            if (!move || !points) return null;
-            return {
-              move,
-              scoreCp: info.scoreCp,
-              mate: info.mate,
-              depth: info.depth,
-              pv: info.pv,
-              multipv,
-              ...points,
-            } satisfies PikafishSuggestion;
-          })
-          .filter((row): row is PikafishSuggestion => Boolean(row))
-          .slice(0, multiPv);
+        const rows: PikafishSuggestion[] = [];
+        for (const [multipv, info] of Array.from(latest.entries()).sort(([a], [b]) => a - b)) {
+          const move = info.pv[0] || (multipv === 1 ? data.move : '');
+          const points = uciMoveToPoints(move);
+          if (!move || !points) continue;
+          rows.push({
+            move,
+            scoreCp: info.scoreCp,
+            mate: info.mate,
+            depth: info.depth,
+            pv: info.pv,
+            multipv,
+            ...points,
+          });
+          if (rows.length >= multiPv) break;
+        }
 
         if (!rows.length && typeof data.move === 'string') {
           const points = uciMoveToPoints(data.move);
