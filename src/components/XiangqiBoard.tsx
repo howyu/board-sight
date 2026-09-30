@@ -15,6 +15,21 @@ const labels: Record<XiangqiPieceType, { red: string; black: string }> = {
   soldier: { red: '兵', black: '卒' },
 };
 
+const AttackIcon: FC = () => (
+  <svg viewBox='0 0 16 16' className='h-3 w-3' fill='none' stroke='currentColor' strokeWidth='1.8' strokeLinecap='round' strokeLinejoin='round' aria-hidden='true'>
+    <path d='M2.5 12.5 8 7' />
+    <path d='m5.5 7 2.5 0 0 2.5' />
+    <path d='M7.5 12.5 13 7' />
+    <path d='m10.5 7 2.5 0 0 2.5' />
+  </svg>
+);
+
+const ShieldIcon: FC = () => (
+  <svg viewBox='0 0 16 16' className='h-3 w-3' fill='none' stroke='currentColor' strokeWidth='1.7' strokeLinecap='round' strokeLinejoin='round' aria-hidden='true'>
+    <path d='M8 1.8 13 3.7v3.8c0 3.2-2 5.5-5 6.8-3-1.3-5-3.6-5-6.8V3.7L8 1.8Z' />
+  </svg>
+);
+
 export const XiangqiBoard: FC = () => {
   const [board, setBoard] = useState<(XiangqiPiece | null)[][]>(() => createInitialXiangqiBoard());
   const [editMode, setEditMode] = useState(false);
@@ -30,7 +45,9 @@ export const XiangqiBoard: FC = () => {
     turn: XiangqiColor;
     lastMove: { from: { row: number; col: number }; to: { row: number; col: number } } | null;
   }>>([]);
+
   const control = useMemo(() => calculateControlMap(board, xiangqiControlAdapter), [board]);
+
   const selectedSquares = useMemo(() => {
     if (!selected) return new Set<string>();
     const piece = board[selected.row][selected.col];
@@ -150,36 +167,8 @@ export const XiangqiBoard: FC = () => {
   const boardHeight = pointSize * 9;
 
   return (
-    <div className='flex flex-col gap-5'>
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div>
-          <div className='flex flex-wrap items-center gap-3'>
-            <h2 className='font-serif text-xl font-semibold tracking-[0.12em] text-amber-100'>中国象棋 · 棋势</h2>
-            <span className={`rounded-full border px-2 py-0.5 text-xs ${turn === 'red' ? 'border-red-700/70 text-red-300' : 'border-stone-500 text-stone-200'}`}>{turn === 'red' ? '红方行棋' : '黑方行棋'}</span>
-            {inCheck && <span className='rounded-full border border-orange-500/80 bg-orange-950/50 px-2 py-0.5 text-xs font-semibold text-orange-300'>将军 · 必须应将</span>}
-            {winner && <span className='rounded-full border border-amber-400/80 bg-amber-950/60 px-2 py-0.5 text-xs font-semibold text-amber-200'>{winner === 'red' ? '红方' : '黑方'}胜</span>}
-          </div>
-          <p className='mt-1 text-xs text-stone-400'>棋子落在线的交点上。点选棋子查看其行棋与控制范围，点选交点查看双方势力来源。</p>
-        </div>
-        <div className='flex flex-wrap gap-2'>
-          <button onClick={() => { setEditMode((v) => !v); setSelected(null); }} className={`rounded-lg border px-3 py-2 text-sm transition ${editMode ? 'border-amber-500/70 bg-amber-800/60 text-amber-100' : 'border-stone-600 bg-stone-800 text-stone-200 hover:bg-stone-700'}`}>
-            {editMode ? '结束摆棋' : '摆棋模式'}
-          </button>
-          <button
-            onClick={undo}
-            disabled={history.length === 0}
-            className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40'
-          >
-            悔棋撤销{history.length > 0 ? ` · ${history.length}` : ''}
-          </button>
-          <button onClick={reset} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>重置局面</button>
-          <button onClick={() => setShowControl((v) => !v)} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>
-            {showControl ? '隐藏全局势力' : '显示全局势力'}
-          </button>
-        </div>
-      </div>
-
-      <div className='overflow-auto pb-3'>
+    <div className='flex flex-col gap-4 lg:flex-row lg:items-start'>
+      <div className='overflow-auto pb-2 lg:pb-0'>
         <div className='mx-auto w-fit rounded-[18px] border border-[#5f3b20] bg-[#9a6338] p-2 shadow-[0_22px_55px_rgba(0,0,0,0.38)]'>
           <div
             className='relative overflow-hidden rounded-[11px] border-[3px] border-[#704523] bg-[#d9ad70] shadow-[inset_0_0_28px_rgba(92,55,25,0.22)]'
@@ -221,36 +210,46 @@ export const XiangqiBoard: FC = () => {
               const isCheckingAttacker = checkingAttackers.has(key);
               const isCheckedGeneral = checkingTargets.has(key);
               const isCheckPath = checkingPath.has(key);
+              const attackCount = piece ? (piece.color === 'red' ? black : red) : 0;
+              const defendCount = piece ? (piece.color === 'red' ? red : black) : 0;
+
               return (
                 <button
                   key={key}
                   onClick={() => handlePointClick(rowIndex, colIndex)}
                   className='absolute z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none'
                   style={{ left: boardPadding + colIndex * pointSize, top: boardPadding + rowIndex * pointSize }}
-                  title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]}` : undefined}
+                  title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]} · 受攻 ${attackCount} · 受守 ${defendCount}` : undefined}
                 >
                   {(wasLastFrom || wasLastTo) && <span className={`pointer-events-none absolute h-10 w-10 rounded-full border-2 ${wasLastTo ? 'border-amber-700/80' : 'border-amber-700/45 border-dashed'}`} />}
                   {isCheckPath && <span className='pointer-events-none absolute h-7 w-7 rounded-full bg-orange-500/18 ring-1 ring-orange-700/40' />}
                   {isCheckingAttacker && <span className='pointer-events-none absolute h-[48px] w-[48px] rounded-full border-[3px] border-orange-600/90 shadow-[0_0_10px_rgba(234,88,12,.45)]' />}
                   {isCheckedGeneral && <span className='pointer-events-none absolute h-[50px] w-[50px] rounded-full border-[3px] border-red-700/95 shadow-[0_0_12px_rgba(185,28,28,.55)]' />}
+
                   {showControl && (red > 0 || black > 0) && !piece && (
                     <span className={`absolute h-3.5 w-3.5 rounded-full border-2 ${contested ? 'border-violet-700 bg-violet-200/75' : red > 0 ? 'border-[#a42b24] bg-red-100/75' : 'border-stone-800 bg-stone-200/80'}`}>
-                      {(red + black) > 1 && <span className='absolute -right-2 -top-2 rounded-full bg-[#f2d9ad] px-1 text-[8px] font-bold leading-3 text-stone-800 shadow'>{red + black}</span>}
+                      {(red + black) > 1 && <span className='absolute -right-2 -top-2 rounded-full bg-[#f2d9ad] px-0.5 text-[8px] font-bold leading-3 text-stone-800 shadow'>{red + black}</span>}
                     </span>
                   )}
                   {legalMove && !piece && <span className='absolute z-20 h-3 w-3 rounded-full bg-emerald-700 shadow-[0_0_0_3px_rgba(240,211,155,.8)]' />}
                   {captureTarget && <span className='absolute z-20 h-[46px] w-[46px] rounded-full border-[3px] border-red-700/90 shadow-[0_0_9px_rgba(153,27,27,.45)]' />}
-                  {selectedControl && !legalMove && !piece && <span className='absolute h-5 w-5 rounded-full border-2 border-amber-500 bg-amber-200/25 shadow-[0_0_9px_rgba(245,158,11,.65)]' />}
+                  {selectedControl && !legalMove && !piece && <span className='absolute h-5 w-5 rounded-full border-2 border-amber-500 bg-amber-200/25 shadow-[0_0_9px_rgba(245,158,11,.55)]' />}
+
                   {piece && (
                     <>
                       {selectedControl && <span className='absolute h-[46px] w-[46px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
                       <span className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-xl font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
                         {labels[piece.type][piece.color]}
                       </span>
-                      {showControl && (red > 0 || black > 0) && (
-                        <span className='absolute -bottom-1 -right-1 z-20 flex min-w-4 items-center justify-center rounded-full border border-[#8c6338] bg-[#f3ddb5] px-0.5 text-[8px] font-bold leading-[14px] text-stone-800 shadow'>
-                          {red || 0}/{black || 0}
-                        </span>
+                      {showControl && (
+                        <>
+                          <span title={`被对方攻击 ${attackCount} 次`} className='absolute -bottom-2 -left-2 z-30 flex h-[18px] min-w-[25px] items-center justify-center gap-0.5 rounded-full border border-red-800/60 bg-[#f5dfb9] px-1 text-[9px] font-bold leading-none text-red-800 shadow-sm'>
+                            <AttackIcon />{attackCount}
+                          </span>
+                          <span title={`被己方保护 ${defendCount} 次`} className='absolute -bottom-2 -right-2 z-30 flex h-[18px] min-w-[25px] items-center justify-center gap-0.5 rounded-full border border-emerald-900/50 bg-[#f5dfb9] px-1 text-[9px] font-bold leading-none text-emerald-900 shadow-sm'>
+                            <ShieldIcon />{defendCount}
+                          </span>
+                        </>
                       )}
                     </>
                   )}
@@ -261,18 +260,50 @@ export const XiangqiBoard: FC = () => {
         </div>
       </div>
 
-      {moveMessage && (
-        <div className='rounded-xl border border-orange-700/60 bg-orange-950/35 px-4 py-2 text-xs text-orange-200'>
-          此处不能落子：{moveMessage}
+      <aside className='flex w-full flex-col gap-3 lg:w-64 xl:w-72 lg:shrink-0'>
+        <div className='rounded-xl border border-stone-700/70 bg-stone-900/45 p-3'>
+          <div className='flex flex-wrap items-center gap-2'>
+            <h2 className='font-serif text-lg font-semibold tracking-[0.12em] text-amber-100'>中国象棋 · 棋势</h2>
+            <span className={`rounded-full border px-2 py-0.5 text-xs ${turn === 'red' ? 'border-red-700/70 text-red-300' : 'border-stone-500 text-stone-200'}`}>{turn === 'red' ? '红方行棋' : '黑方行棋'}</span>
+          </div>
+          {inCheck && <div className='mt-2 rounded-lg border border-orange-700/60 bg-orange-950/40 px-2 py-1.5 text-xs font-semibold text-orange-300'>将军 · 必须应将</div>}
+          {winner && <div className='mt-2 rounded-lg border border-amber-500/60 bg-amber-950/40 px-2 py-1.5 text-xs font-semibold text-amber-200'>{winner === 'red' ? '红方' : '黑方'}胜</div>}
         </div>
-      )}
-      {inspected && inspectedControl && (
-        <div className='rounded-xl border border-stone-700/70 bg-stone-900/60 px-4 py-3 text-xs text-stone-300'>
-          <span className='text-stone-400'>交点 ({inspected.col + 1}, {10 - inspected.row})：</span>{' '}
-          <span className='text-red-400'>红方 {inspectedControl.counts.red}（{describe(inspectedControl.pieces.red)}）</span>{' · '}
-          <span className='text-stone-200'>黑方 {inspectedControl.counts.black}（{describe(inspectedControl.pieces.black)}）</span>
+
+        <div className='grid grid-cols-2 gap-2'>
+          <button onClick={() => { setEditMode((v) => !v); setSelected(null); }} className={`rounded-lg border px-3 py-2 text-sm transition ${editMode ? 'border-amber-500/70 bg-amber-800/60 text-amber-100' : 'border-stone-600 bg-stone-800 text-stone-200 hover:bg-stone-700'}`}>
+            {editMode ? '结束摆棋' : '摆棋模式'}
+          </button>
+          <button onClick={undo} disabled={history.length === 0} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40'>
+            悔棋{history.length > 0 ? ` · ${history.length}` : ''}
+          </button>
+          <button onClick={reset} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>重置局面</button>
+          <button onClick={() => setShowControl((v) => !v)} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>
+            {showControl ? '隐藏势力' : '显示势力'}
+          </button>
         </div>
-      )}
-      <div className='text-center text-xs leading-5 text-stone-400'>绿点：合法移动 · 红圈：合法吃子 · 浅棕标记：上一手起止点 · 将军时橙色标出攻击来源与线路 · 非法候选着法会说明原因 · 悔棋可连续撤销</div>
+
+        {moveMessage && (
+          <div className='rounded-xl border border-orange-700/60 bg-orange-950/35 px-3 py-2 text-xs text-orange-200'>
+            此处不能落子：{moveMessage}
+          </div>
+        )}
+
+        {inspected && inspectedControl && (
+          <div className='rounded-xl border border-stone-700/70 bg-stone-900/45 px-3 py-2 text-xs leading-5 text-stone-300'>
+            <div className='mb-1 text-stone-400'>交点 ({inspected.col + 1}, {10 - inspected.row})</div>
+            <div className='text-red-400'>红方 {inspectedControl.counts.red}（{describe(inspectedControl.pieces.red)}）</div>
+            <div className='text-stone-200'>黑方 {inspectedControl.counts.black}（{describe(inspectedControl.pieces.black)}）</div>
+          </div>
+        )}
+
+        <div className='rounded-xl border border-stone-700/60 bg-stone-900/35 p-3 text-xs leading-5 text-stone-400'>
+          <div className='mb-1 font-medium text-stone-300'>棋子角标</div>
+          <div className='flex items-center gap-1.5 text-red-300'><AttackIcon /> 左下：被对方攻击次数</div>
+          <div className='flex items-center gap-1.5 text-emerald-300'><ShieldIcon /> 右下：被己方保护次数</div>
+          <div className='mt-2'>绿点：合法移动 · 红圈：合法吃子 · 浅棕：上一手 · 橙色：将军线路</div>
+        </div>
+      </aside>
     </div>
-  );};
+  );
+};
