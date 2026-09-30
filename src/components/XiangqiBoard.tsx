@@ -32,6 +32,7 @@ interface MoveSuggestion {
   notation: string;
   score: number;
   tags: string[];
+  replyNotation?: string;
   from: { row: number; col: number };
   to: { row: number; col: number };
 }
@@ -71,6 +72,24 @@ const evaluateBoard = (position: (XiangqiPiece | null)[][], perspective: Xiangqi
     enemyControl += perspective === 'red' ? cell.counts.black : cell.counts.red;
   }));
   return score + (ownControl - enemyControl) * 2;
+};
+
+const allLegalMoves = (
+  position: (XiangqiPiece | null)[][],
+  color: XiangqiColor,
+) => {
+  const moves: Array<{
+    piece: XiangqiPiece;
+    from: { row: number; col: number };
+    to: { row: number; col: number };
+  }> = [];
+  position.forEach((row, rowIndex) => row.forEach((piece, colIndex) => {
+    if (!piece || piece.color !== color) return;
+    getLegalMovesForPiece(position, rowIndex, colIndex).forEach((to) => {
+      moves.push({ piece, from: { row: rowIndex, col: colIndex }, to });
+    });
+  }));
+  return moves;
 };
 
 const CountMarks: FC<{ count: number; kind: 'attack' | 'defense' }> = ({ count, kind }) => {
@@ -230,46 +249,56 @@ export const XiangqiBoard: FC = () => {
       const opponent: XiangqiColor = turn === 'red' ? 'black' : 'red';
       const candidates: MoveSuggestion[] = [];
 
-      board.forEach((row, rowIndex) => row.forEach((piece, colIndex) => {
-        if (!piece || piece.color !== turn) return;
-        getLegalMovesForPiece(board, rowIndex, colIndex).forEach((to) => {
-          const from = { row: rowIndex, col: colIndex };
-          const captured = board[to.row][to.col];
-          const next = applyXiangqiMove(board, from, to);
-          let score = evaluateBoard(next, turn);
-          const tags: string[] = [];
-          if (captured) {
-            score += pieceValues[captured.type] * 0.35;
-            tags.push('吃子');
-          }
-          if (isGeneralInCheck(next, opponent)) {
-            score += 55;
-            tags.push('将军');
-          }
-          if (!hasAnyLegalMove(next, opponent)) {
-            score = 1_000_000;
-            tags.unshift('胜势');
-          }
+      allLegalMoves(board, turn).forEach(({ piece, from, to }) => {
+        const captured = board[to.row][to.col];
+        const next = applyXiangqiMove(board, from, to);
+        const tags: string[] = [];
+        if (captured) tags.push('吃子');
+        if (isGeneralInCheck(next, opponent)) tags.push('将军');
 
-          const before = control[rowIndex][colIndex];
-          const beforeAttack = turn === 'red' ? before.counts.black : before.counts.red;
-          const beforeDefense = turn === 'red' ? before.counts.red : before.counts.black;
-          const nextMap = calculateControlMap(next, xiangqiControlAdapter);
-          const after = nextMap[to.row][to.col];
-          const afterAttack = turn === 'red' ? after.counts.black : after.counts.red;
-          const afterDefense = turn === 'red' ? after.counts.red : after.counts.black;
-          if (beforeAttack > 0 && afterAttack === 0) tags.push('脱险');
-          else if (afterDefense > beforeDefense) tags.push('加强保护');
+        let score = 1_000_000;
+        let replyNotation: string | undefined;
 
-          candidates.push({
-            notation: formatXiangqiMove(piece, from, to),
-            score,
-            tags: tags.slice(0, 2),
-            from,
-            to,
+        if (!hasAnyLegalMove(next, opponent)) {
+          tags.unshift('胜势');
+        } else {
+          const replies = allLegalMoves(next, opponent);
+          let worstScore = Number.POSITIVE_INFINITY;
+
+          replies.forEach((reply) => {
+            const afterReply = applyXiangqiMove(next, reply.from, reply.to);
+            const replyScore = !hasAnyLegalMove(afterReply, turn)
+              ? -1_000_000
+              : evaluateBoard(afterReply, turn);
+
+            if (replyScore < worstScore) {
+              worstScore = replyScore;
+              replyNotation = formatXiangqiMove(reply.piece, reply.from, reply.to);
+            }
           });
+
+          score = worstScore;
+        }
+
+        const before = control[from.row][from.col];
+        const beforeAttack = turn === 'red' ? before.counts.black : before.counts.red;
+        const beforeDefense = turn === 'red' ? before.counts.red : before.counts.black;
+        const nextMap = calculateControlMap(next, xiangqiControlAdapter);
+        const after = nextMap[to.row][to.col];
+        const afterAttack = turn === 'red' ? after.counts.black : after.counts.red;
+        const afterDefense = turn === 'red' ? after.counts.red : after.counts.black;
+        if (beforeAttack > 0 && afterAttack === 0) tags.push('脱险');
+        else if (afterDefense > beforeDefense) tags.push('加强保护');
+
+        candidates.push({
+          notation: formatXiangqiMove(piece, from, to),
+          score,
+          tags: tags.slice(0, 2),
+          replyNotation,
+          from,
+          to,
         });
-      }));
+      });
 
       setSuggestions(candidates.sort((a, b) => b.score - a.score).slice(0, 3));
       setAnalysisBusy(false);
@@ -389,6 +418,14 @@ export const XiangqiBoard: FC = () => {
                 <text x={boardWidth * 0.24} y={4.72 * pointSize} textAnchor='middle'>楚河</text>
                 <text x={boardWidth * 0.76} y={4.72 * pointSize} textAnchor='middle'>汉界</text>
               </g>
+              <g fill='#6f4526' fontFamily='serif' fontSize='12' fontWeight='700'>
+                {['1','2','3','4','5','6','7','8','9'].map((label, col) => (
+                  <text key={`black-file-${label}`} x={col * pointSize} y='-13' textAnchor='middle'>{label}</text>
+                ))}
+                {['九','八','七','六','五','四','三','二','一'].map((label, col) => (
+                  <text key={`red-file-${label}`} x={col * pointSize} y={boardHeight + 22} textAnchor='middle'>{label}</text>
+                ))}
+              </g>
             </svg>
 
             {displayBoard.map((row, rowIndex) => row.map((piece, colIndex) => {
@@ -476,7 +513,7 @@ export const XiangqiBoard: FC = () => {
             <div className='mb-2 flex items-center justify-between gap-2'>
               <div>
                 <div className='font-medium text-stone-100'>下一步建议</div>
-                <div className='mt-0.5 text-[10px] text-stone-500'>BoardSight 本地预分析 · Pikafish 接入前</div>
+                <div className='mt-0.5 text-[10px] text-stone-500'>两层预分析 · 已考虑对手最佳应手 · Pikafish 接入前</div>
               </div>
               <button
                 onClick={analyzeCurrentPosition}
@@ -487,7 +524,7 @@ export const XiangqiBoard: FC = () => {
               </button>
             </div>
             {suggestions.length === 0 ? (
-              <div className='text-stone-500'>点击分析后给出 3 个候选着。当前评分只用于验证交互与解释框架，不代表专业引擎棋力。</div>
+              <div className='text-stone-500'>点击分析后给出 3 个候选着，并先假设对手会选择最不利于你的回应。仍是浅层搜索，不代表专业引擎棋力。</div>
             ) : (
               <div className='space-y-1'>
                 {suggestions.map((suggestion, index) => (
@@ -500,6 +537,7 @@ export const XiangqiBoard: FC = () => {
                       <span className='mr-1 text-stone-500'>#{index + 1}</span>
                       <span className='font-medium text-stone-100'>{suggestion.notation}</span>
                       {suggestion.tags.length > 0 && <span className='ml-2 text-[10px] text-sky-300'>{suggestion.tags.join(' · ')}</span>}
+                      {suggestion.replyNotation && <span className='mt-0.5 block pl-5 text-[10px] text-stone-500'>预计对手：{suggestion.replyNotation}</span>}
                     </span>
                     <span className='text-[10px] tabular-nums text-stone-500'>
                       {suggestion.score >= 999000 ? '胜势' : `${suggestion.score >= 0 ? '+' : ''}${(suggestion.score / 100).toFixed(1)}`}
