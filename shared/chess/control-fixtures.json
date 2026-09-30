@@ -30,7 +30,7 @@
         {
           "square": "b1",
           "piece": "white-knight",
-          "expectedControlledSquares": ["a3","c3"]
+          "expectedControlledSquares": ["a3","c3","d2"]
         },
         {
           "square": "d1",

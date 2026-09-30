@@ -1,6 +1,6 @@
-import { ChessPiece } from './ChessTypes'
+import { ChessPiece, PieceType, PieceColor } from './ChessTypes'
 
-function piece(type: ChessPiece['type'], color: ChessPiece['color']): ChessPiece {
+function piece(type: PieceType, color: PieceColor): ChessPiece {
   return { type, color }
 }
 

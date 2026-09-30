@@ -70,3 +70,33 @@ Do not block this MVP on:
 - Xiangqi native port
 
 Those should be follow-up PRs after the native toolchain is stable.
+
+## Work debugging checkpoint — 2026-09-30
+
+This Work host has Node/npm but no DevEco Studio, HarmonyOS SDK, Hvigor,
+`ohpm`, `hdc`, Previewer or emulator. Switching to Work alone does not install
+those tools. Project sync, native debug compilation and device/UI acceptance
+remain pending; keep PR #12 in Draft.
+
+Completed source checks and fixes:
+
+- Replace indexed-access parameter types with the existing named piece types.
+- Remove the product's reference to an absent `default` signing configuration.
+  Configure local signing in DevEco before installing on a device.
+- Remove the absent obfuscation-rules file reference (obfuscation is disabled).
+- Wrap action buttons, bound board width on tablets, allow scrolling on short
+  viewports, and increase control-count text from 9 to 12 with a dark backing.
+  These layout changes still need Previewer/device inspection.
+- Correct the b1 knight fixture to include d2: friendly occupied squares are
+  controlled/defended squares even though they are not legal move destinations.
+- Add `npm run check:chess-parity` to CI. It executes the native model sources
+  via TypeScript transpilation and compares all 64 initial-position counts,
+  every starting piece's control range and selected-piece fixtures with Web.
+  It is a semantic regression check, **not an ArkTS compiler or UI test**.
+
+Resume with the DevEco/SDK sequence above on a host with that toolchain.
+Do not infer SDK compatibility, glyph availability, touch behavior or viewport
+acceptance from the Node checks.
+
+Validation on this host: `npm run check:chess-parity`, `npm run build`,
+`npm run lint` and `git diff --check` pass. Native compilation remains unverified.
