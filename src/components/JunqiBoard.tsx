@@ -3,7 +3,7 @@ import { generateJunqiCandidates, chooseBlueMove, formatMoveRecord } from '../ga
 import { applyJunqiMove, createJunqiGameState, getBeliefsForState } from '../games/junqi/game';
 import { createInitialJunqiBoard } from '../games/junqi/initialBoard';
 import { getLegalJunqiDestinations } from '../games/junqi/rules';
-import { calculateJunqiRiskMap } from '../games/junqi/sight';
+import { calculateJunqiRiskMap, getJunqiControlledSquares } from '../games/junqi/sight';
 import {
   isCamp,
   isHeadquarters,
@@ -64,6 +64,28 @@ export const JunqiBoard: FC = () => {
   const belief = selectedPiece && selectedPiece.color === 'blue' && !selectedPiece.revealed
     ? beliefs[selectedPiece.id]
     : null;
+
+  const selectedInfluence = useMemo(() => {
+    const influence = new Map<string, number>();
+    if (!selected || !selectedPiece) return influence;
+
+    if (selectedPiece.color === 'blue' && !selectedPiece.revealed) {
+      const selectedBelief = beliefs[selectedPiece.id];
+      selectedBelief?.entries.forEach((entry) => {
+        const hypothetical = { ...selectedPiece, type: entry.type, revealed: true };
+        getJunqiControlledSquares(game.board, selected.row, selected.col, hypothetical)
+          .forEach((square) => {
+            const key = positionKey(square.row, square.col);
+            influence.set(key, Math.min(1, (influence.get(key) ?? 0) + entry.probability));
+          });
+      });
+      return influence;
+    }
+
+    getJunqiControlledSquares(game.board, selected.row, selected.col, selectedPiece)
+      .forEach((square) => influence.set(positionKey(square.row, square.col), 1));
+    return influence;
+  }, [beliefs, game.board, selected, selectedPiece]);
 
   const candidates = useMemo(
     () => game.turn === 'red' && !game.winner
@@ -182,6 +204,7 @@ export const JunqiBoard: FC = () => {
                   const key = positionKey(row, col);
                   const selectedNow = selected?.row === row && selected?.col === col;
                   const legal = legalDestinations.has(key);
+                  const influence = selectedInfluence.get(key) ?? 0;
                   const camp = isCamp(row, col);
                   const hq = isHeadquarters(row, col);
                   const rail = isRailway(row, col);
@@ -213,6 +236,12 @@ export const JunqiBoard: FC = () => {
                       {rail && !camp && (
                         <span className='pointer-events-none absolute inset-x-1 top-1/2 h-1 -translate-y-1/2 bg-stone-700/45' />
                       )}
+                      {influence > 0 && (
+                        <span
+                          className='pointer-events-none absolute inset-1 z-10 rounded-md border-2 border-cyan-300'
+                          style={{ opacity: 0.3 + influence * 0.7 }}
+                        />
+                      )}
                       {legal && !piece && (
                         <span className='pointer-events-none absolute z-10 h-4 w-4 rounded-full bg-emerald-300/85' />
                       )}
@@ -241,7 +270,7 @@ export const JunqiBoard: FC = () => {
             </div>
           </div>
           <p className='mt-3 text-center text-xs leading-5 text-stone-500'>
-            红色越深 = 敌方概率威胁越高 · 绿色 = 当前红方棋子的合法目标 · 点击蓝方暗子查看身份 posterior
+            红色越深 = 敌方全局概率威胁 · 青色 = 当前棋子的势力范围（暗子按 posterior 加权） · 绿色 = 红方合法目标
           </p>
         </div>
 
