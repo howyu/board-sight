@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { PieceColor, PieceState, PieceType } from '../types';
+import { PieceState, PieceType } from '../types';
 import { calculateControlMap } from '../core/controlMap';
 import { chessControlAdapter } from '../games/chess/controlAdapter';
 
