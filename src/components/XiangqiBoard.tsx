@@ -3,6 +3,7 @@ import { calculateControlMap } from '../core/controlMap';
 import { xiangqiControlAdapter } from '../games/xiangqi/controlAdapter';
 import { createInitialXiangqiBoard } from '../games/xiangqi/initialBoard';
 import { applyXiangqiMove, getCheckThreats, getIllegalMoveReason, getLegalMovesForPiece, hasAnyLegalMove, isGeneralInCheck } from '../games/xiangqi/legalRules';
+import { formatXiangqiMove } from '../games/xiangqi/notation';
 import { XiangqiColor, XiangqiPiece, XiangqiPieceType } from '../games/xiangqi/types';
 
 const labels: Record<XiangqiPieceType, { red: string; black: string }> = {
@@ -45,6 +46,15 @@ const CountMarks: FC<{ count: number; kind: 'attack' | 'defense' }> = ({ count, 
   );
 };
 
+interface XiangqiMoveRecord {
+  notation: string;
+  color: XiangqiColor;
+  boardAfter: (XiangqiPiece | null)[][];
+  nextTurn: XiangqiColor;
+  from: { row: number; col: number };
+  to: { row: number; col: number };
+}
+
 export const XiangqiBoard: FC = () => {
   const [board, setBoard] = useState<(XiangqiPiece | null)[][]>(() => createInitialXiangqiBoard());
   const [editMode, setEditMode] = useState(false);
@@ -55,12 +65,21 @@ export const XiangqiBoard: FC = () => {
   const [winner, setWinner] = useState<XiangqiColor | null>(null);
   const [lastMove, setLastMove] = useState<{ from: { row: number; col: number }; to: { row: number; col: number } } | null>(null);
   const [moveMessage, setMoveMessage] = useState<string | null>(null);
+  const [moveRecords, setMoveRecords] = useState<XiangqiMoveRecord[]>([]);
+  const [reviewIndex, setReviewIndex] = useState<number | null>(null);
   const [history, setHistory] = useState<Array<{
     board: (XiangqiPiece | null)[][];
     turn: XiangqiColor;
     lastMove: { from: { row: number; col: number }; to: { row: number; col: number } } | null;
   }>>([]);
-  const control = useMemo(() => calculateControlMap(board, xiangqiControlAdapter), [board]);
+  const displayBoard = reviewIndex === null ? board : moveRecords[reviewIndex]?.boardAfter ?? board;
+  const displayTurn = reviewIndex === null ? turn : moveRecords[reviewIndex]?.nextTurn ?? turn;
+  const displayLastMove = reviewIndex === null
+    ? lastMove
+    : moveRecords[reviewIndex]
+      ? { from: moveRecords[reviewIndex].from, to: moveRecords[reviewIndex].to }
+      : lastMove;
+  const control = useMemo(() => calculateControlMap(displayBoard, xiangqiControlAdapter), [displayBoard]);
   const selectedSquares = useMemo(() => {
     if (!selected) return new Set<string>();
     const piece = board[selected.row][selected.col];
@@ -80,14 +99,15 @@ export const XiangqiBoard: FC = () => {
     );
   }, [board, selected]);
 
-  const inCheck = !editMode && !winner && isGeneralInCheck(board, turn);
-  const checkThreats = useMemo(() => inCheck ? getCheckThreats(board, turn) : [], [board, turn, inCheck]);
+  const inCheck = !editMode && (reviewIndex !== null || !winner) && isGeneralInCheck(displayBoard, displayTurn);
+  const checkThreats = useMemo(() => inCheck ? getCheckThreats(displayBoard, displayTurn) : [], [displayBoard, displayTurn, inCheck]);
   const checkingAttackers = useMemo(() => new Set(checkThreats.map((threat) => `${threat.attacker.row}-${threat.attacker.col}`)), [checkThreats]);
   const checkingTargets = useMemo(() => new Set(checkThreats.map((threat) => `${threat.target.row}-${threat.target.col}`)), [checkThreats]);
   const checkingPath = useMemo(() => new Set(checkThreats.flatMap((threat) => threat.path.map((point) => `${point.row}-${point.col}`))), [checkThreats]);
 
   const handlePointClick = (row: number, col: number) => {
     setInspected({ row, col });
+    if (reviewIndex !== null) return;
     const piece = board[row][col];
 
     if (winner && !editMode) return;
@@ -102,6 +122,11 @@ export const XiangqiBoard: FC = () => {
       next[selected.row][selected.col] = null;
       setBoard(next);
       setSelected(null);
+      setLastMove(null);
+      setHistory([]);
+      setMoveRecords([]);
+      setReviewIndex(null);
+      setWinner(null);
       return;
     }
 
@@ -113,10 +138,19 @@ export const XiangqiBoard: FC = () => {
         const to = { row, col };
         const next = applyXiangqiMove(board, from, to);
         const opponent: XiangqiColor = movingPiece.color === 'red' ? 'black' : 'red';
+        const notation = formatXiangqiMove(movingPiece, from, to);
         setHistory((items) => [...items, {
           board: board.map((boardRow) => [...boardRow]),
           turn,
           lastMove,
+        }]);
+        setMoveRecords((items) => [...items, {
+          notation,
+          color: movingPiece.color,
+          boardAfter: next.map((boardRow) => [...boardRow]),
+          nextTurn: opponent,
+          from,
+          to,
         }]);
         setBoard(next);
         setSelected(null);
@@ -147,6 +181,8 @@ export const XiangqiBoard: FC = () => {
     setTurn(previous.turn);
     setLastMove(previous.lastMove);
     setHistory((items) => items.slice(0, -1));
+    setMoveRecords((items) => items.slice(0, -1));
+    setReviewIndex(null);
     setSelected(null);
     setInspected(null);
     setMoveMessage(null);
@@ -162,9 +198,41 @@ export const XiangqiBoard: FC = () => {
     setLastMove(null);
     setMoveMessage(null);
     setHistory([]);
+    setMoveRecords([]);
+    setReviewIndex(null);
   };
 
   const inspectedControl = inspected ? control[inspected.row][inspected.col] : null;
+  const dangerPieces = useMemo(() => {
+    const items: Array<{
+      row: number;
+      col: number;
+      piece: XiangqiPiece;
+      attack: number;
+      defense: number;
+      severity: 'high' | 'medium';
+    }> = [];
+    displayBoard.forEach((row, rowIndex) => row.forEach((piece, colIndex) => {
+      if (!piece || piece.type === 'general') return;
+      const cell = control[rowIndex][colIndex];
+      const attack = piece.color === 'red' ? cell.counts.black : cell.counts.red;
+      const defense = piece.color === 'red' ? cell.counts.red : cell.counts.black;
+      if (attack <= 0) return;
+      if (defense === 0 || attack > defense) {
+        items.push({
+          row: rowIndex,
+          col: colIndex,
+          piece,
+          attack,
+          defense,
+          severity: defense === 0 ? 'high' : 'medium',
+        });
+      }
+    }));
+    return items
+      .sort((a, b) => Number(b.severity === 'high') - Number(a.severity === 'high') || (b.attack - b.defense) - (a.attack - a.defense))
+      .slice(0, 6);
+  }, [displayBoard, control]);
   const describe = (pieces: { type: XiangqiPieceType }[]) => {
     const counts = pieces.reduce<Record<string, number>>((acc, piece) => {
       const name = labels[piece.type].red === labels[piece.type].black ? labels[piece.type].red : labels[piece.type].red + '/' + labels[piece.type].black;
@@ -185,7 +253,8 @@ export const XiangqiBoard: FC = () => {
         <h2 className='font-serif text-xl font-semibold tracking-[0.12em] text-amber-100'>中国象棋 · 棋势</h2>
         <span className={`rounded-full border px-2 py-0.5 text-xs ${turn === 'red' ? 'border-red-700/70 text-red-300' : 'border-stone-500 text-stone-200'}`}>{turn === 'red' ? '红方行棋' : '黑方行棋'}</span>
         {inCheck && <span className='rounded-full border border-orange-500/80 bg-orange-950/50 px-2 py-0.5 text-xs font-semibold text-orange-300'>将军 · 必须应将</span>}
-        {winner && <span className='rounded-full border border-amber-400/80 bg-amber-950/60 px-2 py-0.5 text-xs font-semibold text-amber-200'>{winner === 'red' ? '红方' : '黑方'}胜</span>}
+        {winner && reviewIndex === null && <span className='rounded-full border border-amber-400/80 bg-amber-950/60 px-2 py-0.5 text-xs font-semibold text-amber-200'>{winner === 'red' ? '红方' : '黑方'}胜</span>}
+        {reviewIndex !== null && <span className='rounded-full border border-sky-600/70 bg-sky-950/40 px-2 py-0.5 text-xs text-sky-200'>回看第 {reviewIndex + 1} 手</span>}
       </div>
 
       <div className='flex flex-col items-start gap-4 min-[900px]:flex-row'>
@@ -216,7 +285,7 @@ export const XiangqiBoard: FC = () => {
               </g>
             </svg>
 
-            {board.map((row, rowIndex) => row.map((piece, colIndex) => {
+            {displayBoard.map((row, rowIndex) => row.map((piece, colIndex) => {
               const cell = control[rowIndex][colIndex];
               const key = `${rowIndex}-${colIndex}`;
               const isSelected = selected?.row === rowIndex && selected?.col === colIndex;
@@ -225,9 +294,9 @@ export const XiangqiBoard: FC = () => {
               const black = cell.counts.black;
               const contested = red > 0 && black > 0;
               const legalMove = legalMoves.has(key);
-              const captureTarget = legalMove && Boolean(piece) && piece?.color !== board[selected?.row ?? rowIndex]?.[selected?.col ?? colIndex]?.color;
-              const wasLastFrom = lastMove?.from.row === rowIndex && lastMove?.from.col === colIndex;
-              const wasLastTo = lastMove?.to.row === rowIndex && lastMove?.to.col === colIndex;
+              const captureTarget = reviewIndex === null && legalMove && Boolean(piece) && piece?.color !== board[selected?.row ?? rowIndex]?.[selected?.col ?? colIndex]?.color;
+              const wasLastFrom = displayLastMove?.from.row === rowIndex && displayLastMove?.from.col === colIndex;
+              const wasLastTo = displayLastMove?.to.row === rowIndex && displayLastMove?.to.col === colIndex;
               const isCheckingAttacker = checkingAttackers.has(key);
               const isCheckedGeneral = checkingTargets.has(key);
               const isCheckPath = checkingPath.has(key);
@@ -250,7 +319,7 @@ export const XiangqiBoard: FC = () => {
                       {(red + black) > 1 && <span className='absolute -right-2 -top-2 rounded-full bg-[#f2d9ad] px-1 text-[8px] font-bold leading-3 text-stone-800 shadow'>{red + black}</span>}
                     </span>
                   )}
-                  {legalMove && !piece && <span className='absolute z-20 h-3 w-3 rounded-full bg-emerald-700 shadow-[0_0_0_3px_rgba(240,211,155,.8)]' />}
+                  {reviewIndex === null && legalMove && !piece && <span className='absolute z-20 h-3 w-3 rounded-full bg-emerald-700 shadow-[0_0_0_3px_rgba(240,211,155,.8)]' />}
                   {captureTarget && <span className='absolute z-20 h-[46px] w-[46px] rounded-full border-[3px] border-red-700/90 shadow-[0_0_9px_rgba(153,27,27,.45)]' />}
                   {selectedControl && !legalMove && !piece && <span className='absolute h-5 w-5 rounded-full border-2 border-amber-500 bg-amber-200/25 shadow-[0_0_9px_rgba(245,158,11,.65)]' />}
                   {piece && (
@@ -290,6 +359,60 @@ export const XiangqiBoard: FC = () => {
             <button onClick={() => setShowControl((v) => !v)} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>
               {showControl ? '隐藏势力提示' : '显示势力提示'}
             </button>
+          </div>
+
+          <div className='rounded-xl border border-stone-700/70 bg-stone-900/55 p-3 text-xs text-stone-300'>
+            <div className='mb-2 flex items-center justify-between'>
+              <span className='font-medium text-stone-100'>棋谱 · {moveRecords.length} 手</span>
+              {reviewIndex !== null && (
+                <button onClick={() => { setReviewIndex(null); setInspected(null); }} className='text-sky-300 hover:text-sky-200'>回到当前</button>
+              )}
+            </div>
+            {moveRecords.length === 0 ? (
+              <div className='text-stone-500'>开始行棋后自动记录。</div>
+            ) : (
+              <div className='grid max-h-32 grid-cols-2 gap-1 overflow-auto'>
+                {moveRecords.map((move, index) => (
+                  <button
+                    key={index}
+                    onClick={() => { setReviewIndex(index); setSelected(null); setInspected(null); setMoveMessage(null); }}
+                    className={`rounded px-2 py-1 text-left transition ${reviewIndex === index ? 'bg-sky-900/60 text-sky-100' : 'bg-stone-800/70 hover:bg-stone-700'}`}
+                    title={`第 ${index + 1} 手`}
+                  >
+                    <span className='mr-1 text-stone-500'>{index + 1}.</span>
+                    <span className={move.color === 'red' ? 'text-red-300' : 'text-stone-100'}>{move.notation}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className='rounded-xl border border-stone-700/70 bg-stone-900/55 p-3 text-xs text-stone-300'>
+            <div className='mb-2 flex items-center justify-between'>
+              <span className='font-medium text-stone-100'>局面风险</span>
+              <span className='text-stone-500'>{dangerPieces.length ? `${dangerPieces.length} 个需注意` : '暂无明显风险'}</span>
+            </div>
+            {dangerPieces.length > 0 && (
+              <div className='space-y-1'>
+                {dangerPieces.map((item) => (
+                  <button
+                    key={`${item.row}-${item.col}`}
+                    onClick={() => setInspected({ row: item.row, col: item.col })}
+                    className='flex w-full items-center justify-between rounded bg-stone-800/65 px-2 py-1 text-left hover:bg-stone-700'
+                  >
+                    <span>
+                      <span className={item.piece.color === 'red' ? 'text-red-300' : 'text-stone-100'}>
+                        {item.piece.color === 'red' ? '红' : '黑'}{labels[item.piece.type][item.piece.color]}
+                      </span>
+                      <span className='ml-1 text-stone-500'>({item.col + 1},{10 - item.row})</span>
+                    </span>
+                    <span className={item.severity === 'high' ? 'text-red-300' : 'text-orange-300'}>
+                      攻 {item.attack} / 守 {item.defense}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className='rounded-xl border border-stone-700/70 bg-stone-900/55 p-3 text-xs leading-5 text-stone-400'>
