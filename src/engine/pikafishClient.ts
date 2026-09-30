@@ -228,7 +228,11 @@ class PikafishEngine {
       const pending = this.pending;
       this.pending = null;
       window.clearTimeout(pending.timeoutId);
-      rows.length ? pending.resolve(rows) : pending.reject(new Error('Pikafish 没有返回可解析的候选着。'));
+      if (rows.length) {
+        pending.resolve(rows);
+      } else {
+        pending.reject(new Error('Pikafish 没有返回可解析的候选着。'));
+      }
     }
   }
 
