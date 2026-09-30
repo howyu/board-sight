@@ -16,8 +16,8 @@ const labels: Record<XiangqiPieceType, { red: string; black: string }> = {
 };
 
 const AttackIcon: FC = () => (
-  <svg viewBox='0 0 16 16' className='h-3 w-3' aria-hidden='true'>
-    <path d='M2 4.5 5.5 8 2 11.5M7 4.5 10.5 8 7 11.5M11 8h3' fill='none' stroke='currentColor' strokeWidth='1.8' strokeLinecap='round' strokeLinejoin='round' />
+  <svg viewBox='0 0 18 18' className='h-3.5 w-3.5' aria-hidden='true'>
+    <path d='M3 2.5 13.5 13M5.2 2.4 3 2.5l.1 2.2M12.8 12.3l2.5 2.5M15 13.2l-1.8 1.8M15 2.5 4.5 13M12.8 2.4l2.2.1-.1 2.2M5.2 12.3l-2.5 2.5M3 13.2 4.8 15' fill='none' stroke='currentColor' strokeWidth='1.55' strokeLinecap='round' strokeLinejoin='round' />
   </svg>
 );
 
@@ -156,8 +156,8 @@ export const XiangqiBoard: FC = () => {
     return Object.entries(counts).map(([name, count]) => `${name}×${count}`).join('、') || '无';
   };
 
-  const pointSize = 48;
-  const boardPadding = 28;
+  const pointSize = 56;
+  const boardPadding = 34;
   const boardWidth = pointSize * 8;
   const boardHeight = pointSize * 9;
 
@@ -219,14 +219,14 @@ export const XiangqiBoard: FC = () => {
                 <button
                   key={key}
                   onClick={() => handlePointClick(rowIndex, colIndex)}
-                  className='absolute z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none'
+                  className='absolute z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none'
                   style={{ left: boardPadding + colIndex * pointSize, top: boardPadding + rowIndex * pointSize }}
                   title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]}` : undefined}
                 >
                   {(wasLastFrom || wasLastTo) && <span className={`pointer-events-none absolute h-10 w-10 rounded-full border-2 ${wasLastTo ? 'border-amber-700/80' : 'border-amber-700/45 border-dashed'}`} />}
                   {isCheckPath && <span className='pointer-events-none absolute h-7 w-7 rounded-full bg-orange-500/18 ring-1 ring-orange-700/40' />}
-                  {isCheckingAttacker && <span className='pointer-events-none absolute h-[48px] w-[48px] rounded-full border-[3px] border-orange-600/90 shadow-[0_0_10px_rgba(234,88,12,.45)]' />}
-                  {isCheckedGeneral && <span className='pointer-events-none absolute h-[50px] w-[50px] rounded-full border-[3px] border-red-700/95 shadow-[0_0_12px_rgba(185,28,28,.55)]' />}
+                  {isCheckingAttacker && <span className='pointer-events-none absolute h-[52px] w-[52px] rounded-full border-[3px] border-orange-600/90 shadow-[0_0_10px_rgba(234,88,12,.45)]' />}
+                  {isCheckedGeneral && <span className='pointer-events-none absolute h-[54px] w-[54px] rounded-full border-[3px] border-red-700/95 shadow-[0_0_12px_rgba(185,28,28,.55)]' />}
                   {showControl && (red > 0 || black > 0) && !piece && (
                     <span className={`absolute h-3.5 w-3.5 rounded-full border-2 ${contested ? 'border-violet-700 bg-violet-200/75' : red > 0 ? 'border-[#a42b24] bg-red-100/75' : 'border-stone-800 bg-stone-200/80'}`}>
                       {(red + black) > 1 && <span className='absolute -right-2 -top-2 rounded-full bg-[#f2d9ad] px-1 text-[8px] font-bold leading-3 text-stone-800 shadow'>{red + black}</span>}
@@ -238,19 +238,19 @@ export const XiangqiBoard: FC = () => {
                   {piece && (
                     <>
                       {selectedControl && <span className='absolute h-[46px] w-[46px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
-                      <span className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-xl font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
+                      <span className={`relative z-10 flex h-11 w-11 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-[22px] font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
                         {labels[piece.type][piece.color]}
                       </span>
                       {showControl && (
                         <>
                           <span
-                            className='absolute -bottom-2 -left-2 z-30 flex h-5 min-w-7 items-center justify-center gap-0.5 rounded-full border border-[#9a5a42] bg-[#f3ddb5] px-1 text-[9px] font-bold text-[#9b2c20] shadow'
+                            className='absolute -bottom-2.5 -left-2.5 z-30 flex h-5 min-w-8 items-center justify-center gap-0.5 rounded-full border border-[#9a5a42] bg-[#f3ddb5] px-1 text-[9px] font-bold text-[#9b2c20] shadow'
                             title={`被对方攻击 ${attackCount} 次`}
                           >
                             <AttackIcon /><span>{attackCount}</span>
                           </span>
                           <span
-                            className='absolute -bottom-2 -right-2 z-30 flex h-5 min-w-7 items-center justify-center gap-0.5 rounded-full border border-[#7b6b4e] bg-[#f3ddb5] px-1 text-[9px] font-bold text-[#3f4a34] shadow'
+                            className='absolute -bottom-2.5 -right-2.5 z-30 flex h-5 min-w-8 items-center justify-center gap-0.5 rounded-full border border-[#7b6b4e] bg-[#f3ddb5] px-1 text-[9px] font-bold text-[#3f4a34] shadow'
                             title={`被己方保护 ${defenseCount} 次`}
                           >
                             <DefenseIcon /><span>{defenseCount}</span>
