@@ -1,8 +1,9 @@
 import {
-  insideJunqiBoard,
+  getRailLinesThrough,
   isHeadquarters,
   isRailway,
-  railwayDirections,
+  positionKey,
+  railNeighbors,
   roadNeighbors,
 } from './terrain';
 import {
@@ -13,7 +14,7 @@ import {
   JunqiPosition,
 } from './types';
 
-const inventory: Record<JunqiPieceType, number> = {
+export const JUNQI_INVENTORY: Record<JunqiPieceType, number> = {
   marshal: 1,
   general: 1,
   majorGeneral: 2,
@@ -28,7 +29,7 @@ const inventory: Record<JunqiPieceType, number> = {
   flag: 1,
 };
 
-const combatValue: Record<JunqiPieceType, number> = {
+export const JUNQI_COMBAT_VALUE: Record<JunqiPieceType, number> = {
   marshal: 10,
   general: 9,
   majorGeneral: 8,
@@ -46,26 +47,27 @@ const combatValue: Record<JunqiPieceType, number> = {
 const movable = (piece: JunqiPiece) =>
   piece.type !== 'mine' && piece.type !== 'flag';
 
-const posKey = (p: JunqiPosition) => `${p.row}-${p.col}`;
-
 const railStraightMoves = (
   board: (JunqiPiece | null)[][],
   row: number,
   col: number
 ): JunqiPosition[] => {
   if (!isRailway(row, col)) return [];
-  const out: JunqiPosition[] = [];
-  for (const dir of railwayDirections(row, col)) {
-    let r = row + dir.row;
-    let c = col + dir.col;
-    while (insideJunqiBoard(r, c) && isRailway(r, c)) {
-      out.push({ row: r, col: c });
-      if (board[r][c]) break;
-      r += dir.row;
-      c += dir.col;
+  const out = new Map<string, JunqiPosition>();
+  const originKey = positionKey(row, col);
+
+  getRailLinesThrough(row, col).forEach((railLine) => {
+    const start = railLine.indexOf(originKey);
+    for (const step of [-1, 1]) {
+      for (let i = start + step; i >= 0 && i < railLine.length; i += step) {
+        const [r, c] = railLine[i].split('-').map(Number);
+        out.set(railLine[i], { row: r, col: c });
+        if (board[r][c]) break;
+      }
     }
-  }
-  return out;
+  });
+
+  return [...out.values()];
 };
 
 const railEngineerMoves = (
@@ -76,28 +78,21 @@ const railEngineerMoves = (
   if (!isRailway(row, col)) return [];
   const start = { row, col };
   const queue: JunqiPosition[] = [start];
-  const visited = new Set([posKey(start)]);
-  const out: JunqiPosition[] = [];
+  const visited = new Set([positionKey(row, col)]);
+  const out = new Map<string, JunqiPosition>();
 
   while (queue.length) {
     const current = queue.shift()!;
-    const candidates = [
-      { row: current.row - 1, col: current.col },
-      { row: current.row + 1, col: current.col },
-      { row: current.row, col: current.col - 1 },
-      { row: current.row, col: current.col + 1 },
-    ];
-
-    for (const next of candidates) {
-      if (!insideJunqiBoard(next.row, next.col) || !isRailway(next.row, next.col)) continue;
-      const k = posKey(next);
-      if (visited.has(k)) continue;
-      visited.add(k);
-      out.push(next);
+    for (const next of railNeighbors(current)) {
+      const key = positionKey(next.row, next.col);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      out.set(key, next);
       if (!board[next.row][next.col]) queue.push(next);
     }
   }
-  return out;
+
+  return [...out.values()];
 };
 
 export const getJunqiControlledSquares = (
@@ -114,21 +109,37 @@ export const getJunqiControlledSquares = (
     : railStraightMoves(board, row, col);
 
   const unique = new Map<string, JunqiPosition>();
-  [...road, ...rail].forEach((p) => unique.set(posKey(p), p));
+  [...road, ...rail].forEach((p) => unique.set(positionKey(p.row, p.col), p));
   return [...unique.values()];
 };
 
+export const canReachOnlyAsEngineer = (
+  board: (JunqiPiece | null)[][],
+  from: JunqiPosition,
+  to: JunqiPosition
+) => {
+  const dummy: JunqiPiece = { id: 'probe', color: 'red', type: 'captain', revealed: true };
+  const engineer: JunqiPiece = { ...dummy, type: 'engineer' };
+  const generic = new Set(
+    getJunqiControlledSquares(board, from.row, from.col, dummy)
+      .map((p) => positionKey(p.row, p.col))
+  );
+  const engineers = new Set(
+    getJunqiControlledSquares(board, from.row, from.col, engineer)
+      .map((p) => positionKey(p.row, p.col))
+  );
+  const target = positionKey(to.row, to.col);
+  return engineers.has(target) && !generic.has(target);
+};
+
 const allowedPriorTypes = (row: number, col: number): JunqiPieceType[] => {
-  let types = Object.keys(inventory) as JunqiPieceType[];
+  let types = Object.keys(JUNQI_INVENTORY) as JunqiPieceType[];
 
-  // At initial setup, flag must be in one of the two rear headquarters.
-  if (row === 0 && (col === 1 || col === 3)) return types;
-  types = types.filter((type) => type !== 'flag');
+  if (!(row === 0 && (col === 1 || col === 3))) {
+    types = types.filter((type) => type !== 'flag');
+  }
 
-  // Enemy rear two rows can contain mines; other rows cannot.
   if (row > 1) types = types.filter((type) => type !== 'mine');
-
-  // Bombs cannot be placed on the enemy front row.
   if (row === 5) types = types.filter((type) => type !== 'bomb');
 
   return types;
@@ -139,7 +150,7 @@ export const buildPriorBelief = (
   row: number,
   col: number
 ): JunqiBelief => {
-  if (piece.type) {
+  if (piece.revealed) {
     return {
       pieceId: piece.id,
       source: 'history',
@@ -148,28 +159,23 @@ export const buildPriorBelief = (
   }
 
   const allowed = allowedPriorTypes(row, col);
-  const total = allowed.reduce((sum, type) => sum + inventory[type], 0);
+  const total = allowed.reduce((sum, type) => sum + JUNQI_INVENTORY[type], 0);
   const entries: JunqiBeliefEntry[] = allowed
-    .map((type) => ({ type, probability: inventory[type] / total }))
+    .map((type) => ({ type, probability: JUNQI_INVENTORY[type] / total }))
     .sort((a, b) => b.probability - a.probability);
 
   return { pieceId: piece.id, source: 'prior', entries };
 };
 
-export const expectedThreat = (
-  piece: JunqiPiece,
-  row: number,
-  col: number
-): number => {
-  const belief = buildPriorBelief(piece, row, col);
-  return belief.entries.reduce(
-    (sum, entry) => sum + entry.probability * combatValue[entry.type],
+export const expectedThreatFromBelief = (belief: JunqiBelief): number =>
+  belief.entries.reduce(
+    (sum, entry) => sum + entry.probability * JUNQI_COMBAT_VALUE[entry.type],
     0
   );
-};
 
 export const calculateJunqiRiskMap = (
   board: (JunqiPiece | null)[][],
+  beliefs: Record<string, JunqiBelief>,
   perspective: 'red' | 'blue' = 'red'
 ): number[][] => {
   const risk = Array.from({ length: board.length }, () =>
@@ -179,7 +185,8 @@ export const calculateJunqiRiskMap = (
   board.forEach((boardRow, row) => {
     boardRow.forEach((piece, col) => {
       if (!piece || piece.color === perspective) return;
-      const weight = expectedThreat(piece, row, col);
+      const belief = beliefs[piece.id] ?? buildPriorBelief(piece, row, col);
+      const weight = expectedThreatFromBelief(belief);
       getJunqiControlledSquares(board, row, col, piece).forEach((p) => {
         risk[p.row][p.col] += weight;
       });
