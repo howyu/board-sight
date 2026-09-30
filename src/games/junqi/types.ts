@@ -17,7 +17,8 @@ export type JunqiPieceType =
 export interface JunqiPiece {
   id: string;
   color: JunqiColor;
-  type: JunqiPieceType | null;
+  /** True identity used by the local rules engine. UI/analysis must respect revealed. */
+  type: JunqiPieceType;
   revealed: boolean;
 }
 
@@ -34,5 +35,17 @@ export interface JunqiBeliefEntry {
 export interface JunqiBelief {
   pieceId: string;
   entries: JunqiBeliefEntry[];
-  source: 'prior' | 'history';
+  source: 'prior' | 'history' | 'coupled';
+}
+
+export interface JunqiMoveRecord {
+  ply: number;
+  color: JunqiColor;
+  pieceId: string;
+  from: JunqiPosition;
+  to: JunqiPosition;
+  attackerType?: JunqiPieceType;
+  defenderId?: string;
+  defenderType?: JunqiPieceType;
+  outcome?: 'move' | 'attacker' | 'defender' | 'both' | 'flag';
 }
