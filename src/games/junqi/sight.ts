@@ -186,9 +186,12 @@ export const calculateJunqiRiskMap = (
     boardRow.forEach((piece, col) => {
       if (!piece || piece.color === perspective) return;
       const belief = beliefs[piece.id] ?? buildPriorBelief(piece, row, col);
-      const weight = expectedThreatFromBelief(belief);
-      getJunqiControlledSquares(board, row, col, piece).forEach((p) => {
-        risk[p.row][p.col] += weight;
+      belief.entries.forEach((entry) => {
+        const hypothetical: JunqiPiece = { ...piece, type: entry.type, revealed: true };
+        const weight = entry.probability * JUNQI_COMBAT_VALUE[entry.type];
+        getJunqiControlledSquares(board, row, col, hypothetical).forEach((p) => {
+          risk[p.row][p.col] += weight;
+        });
       });
     });
   });
