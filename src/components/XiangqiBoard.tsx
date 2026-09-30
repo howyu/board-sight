@@ -68,88 +68,105 @@ export const XiangqiBoard: FC = () => {
     return Object.entries(counts).map(([name, count]) => `${name}×${count}`).join('、') || '无';
   };
 
+  const pointSize = 48;
+  const boardPadding = 28;
+  const boardWidth = pointSize * 8;
+  const boardHeight = pointSize * 9;
+
   return (
-    <div className='flex flex-col gap-4'>
-      <div className='flex flex-wrap items-center justify-between gap-2'>
+    <div className='flex flex-col gap-5'>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <h2 className='text-gray-100 font-semibold'>中国象棋 · 势力图</h2>
-          <p className='text-xs text-gray-400'>点击棋子查看单子控制范围；数字表示双方控制该点的棋子数。</p>
+          <h2 className='font-serif text-xl font-semibold tracking-[0.12em] text-amber-100'>中国象棋 · 棋势</h2>
+          <p className='mt-1 text-xs text-stone-400'>棋子落在线的交点上。点选棋子查看其行棋与控制范围，点选交点查看双方势力来源。</p>
         </div>
         <div className='flex flex-wrap gap-2'>
-          <button
-            onClick={() => { setEditMode((v) => !v); setSelected(null); }}
-            className={`px-3 py-2 rounded text-sm text-gray-100 ${editMode ? 'bg-amber-700 hover:bg-amber-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-          >
+          <button onClick={() => { setEditMode((v) => !v); setSelected(null); }} className={`rounded-lg border px-3 py-2 text-sm transition ${editMode ? 'border-amber-500/70 bg-amber-800/60 text-amber-100' : 'border-stone-600 bg-stone-800 text-stone-200 hover:bg-stone-700'}`}>
             {editMode ? '结束摆棋' : '摆棋模式'}
           </button>
-          <button onClick={reset} className='px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-sm text-gray-100'>
-            重置局面
-          </button>
-          <button
-            onClick={() => setShowControl((v) => !v)}
-            className='px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-sm text-gray-100'
-          >
+          <button onClick={reset} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>重置局面</button>
+          <button onClick={() => setShowControl((v) => !v)} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>
             {showControl ? '隐藏全局势力' : '显示全局势力'}
           </button>
         </div>
       </div>
 
-      <div className='overflow-auto pb-2'>
-        <div className='relative min-w-[396px] w-fit mx-auto bg-amber-100 border-4 border-amber-900 p-3'>
-          <div className='absolute left-3 right-3 top-1/2 -translate-y-1/2 h-[44px] bg-amber-50 border-y border-amber-800 flex items-center justify-around text-amber-900 text-sm tracking-[0.35em] pointer-events-none'>
-            <span>楚 河</span><span>汉 界</span>
-          </div>
-          {board.map((row, rowIndex) => (
-            <div key={rowIndex} className='flex'>
-              {row.map((piece, colIndex) => {
-                const cell = control[rowIndex][colIndex];
-                const key = `${rowIndex}-${colIndex}`;
-                const isSelected = selected?.row === rowIndex && selected?.col === colIndex;
-                const selectedControl = selectedSquares.has(key);
-                const red = cell.counts.red;
-                const black = cell.counts.black;
-                const controlClass = !showControl
-                  ? ''
-                  : red > black
-                    ? 'bg-red-400/25'
-                    : black > red
-                      ? 'bg-slate-600/25'
-                      : red > 0
-                        ? 'bg-purple-500/25'
-                        : '';
+      <div className='overflow-auto pb-3'>
+        <div className='mx-auto w-fit rounded-[18px] border border-[#5f3b20] bg-[#9a6338] p-2 shadow-[0_22px_55px_rgba(0,0,0,0.38)]'>
+          <div
+            className='relative overflow-hidden rounded-[11px] border-[3px] border-[#704523] bg-[#d9ad70] shadow-[inset_0_0_28px_rgba(92,55,25,0.22)]'
+            style={{ width: boardWidth + boardPadding * 2, height: boardHeight + boardPadding * 2 }}
+          >
+            <div className='pointer-events-none absolute inset-0 opacity-[0.13]' style={{ backgroundImage: 'repeating-linear-gradient(7deg, transparent 0, transparent 13px, rgba(90,54,25,.25) 14px, transparent 15px)' }} />
 
-                return (
-                  <button
-                    key={key}
-                    onClick={() => handlePointClick(rowIndex, colIndex)}
-                    className={`relative w-11 h-11 border border-amber-800/50 flex items-center justify-center ${controlClass} ${selectedControl ? 'ring-2 ring-inset ring-yellow-500' : ''} ${isSelected ? 'ring-2 ring-inset ring-cyan-500' : ''}`}
-                    title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]}` : undefined}
-                  >
-                    {piece && (
-                      <span className={`z-10 w-9 h-9 rounded-full bg-amber-50 border-2 flex items-center justify-center font-serif font-bold text-lg shadow-sm ${piece.color === 'red' ? 'text-red-700 border-red-700' : 'text-gray-900 border-gray-900'}`}>
+            <svg className='pointer-events-none absolute' style={{ left: boardPadding, top: boardPadding }} width={boardWidth} height={boardHeight} viewBox={`0 0 ${boardWidth} ${boardHeight}`}>
+              <g stroke='#5d351c' strokeWidth='1.35' fill='none'>
+                {Array.from({ length: 10 }).map((_, r) => <line key={`h-${r}`} x1='0' y1={r * pointSize} x2={boardWidth} y2={r * pointSize} />)}
+                {Array.from({ length: 9 }).map((_, col) => (
+                  col === 0 || col === 8
+                    ? <line key={`v-${col}`} x1={col * pointSize} y1='0' x2={col * pointSize} y2={boardHeight} />
+                    : <g key={`v-${col}`}><line x1={col * pointSize} y1='0' x2={col * pointSize} y2={4 * pointSize} /><line x1={col * pointSize} y1={5 * pointSize} x2={col * pointSize} y2={boardHeight} /></g>
+                ))}
+                <line x1={3 * pointSize} y1='0' x2={5 * pointSize} y2={2 * pointSize} />
+                <line x1={5 * pointSize} y1='0' x2={3 * pointSize} y2={2 * pointSize} />
+                <line x1={3 * pointSize} y1={7 * pointSize} x2={5 * pointSize} y2={9 * pointSize} />
+                <line x1={5 * pointSize} y1={7 * pointSize} x2={3 * pointSize} y2={9 * pointSize} />
+              </g>
+              <g fill='#68401f' fontFamily='serif' fontSize='21' fontWeight='600' letterSpacing='5'>
+                <text x={boardWidth * 0.24} y={4.72 * pointSize} textAnchor='middle'>楚河</text>
+                <text x={boardWidth * 0.76} y={4.72 * pointSize} textAnchor='middle'>汉界</text>
+              </g>
+            </svg>
+
+            {board.map((row, rowIndex) => row.map((piece, colIndex) => {
+              const cell = control[rowIndex][colIndex];
+              const key = `${rowIndex}-${colIndex}`;
+              const isSelected = selected?.row === rowIndex && selected?.col === colIndex;
+              const selectedControl = selectedSquares.has(key);
+              const red = cell.counts.red;
+              const black = cell.counts.black;
+              const contested = red > 0 && black > 0;
+              return (
+                <button
+                  key={key}
+                  onClick={() => handlePointClick(rowIndex, colIndex)}
+                  className='absolute z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none'
+                  style={{ left: boardPadding + colIndex * pointSize, top: boardPadding + rowIndex * pointSize }}
+                  title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]}` : undefined}
+                >
+                  {showControl && (red > 0 || black > 0) && !piece && (
+                    <span className={`absolute h-3.5 w-3.5 rounded-full border-2 ${contested ? 'border-violet-700 bg-violet-200/75' : red > 0 ? 'border-[#a42b24] bg-red-100/75' : 'border-stone-800 bg-stone-200/80'}`}>
+                      {(red + black) > 1 && <span className='absolute -right-2 -top-2 rounded-full bg-[#f2d9ad] px-1 text-[8px] font-bold leading-3 text-stone-800 shadow'>{red + black}</span>}
+                    </span>
+                  )}
+                  {selectedControl && !piece && <span className='absolute h-5 w-5 rounded-full border-2 border-amber-500 bg-amber-200/25 shadow-[0_0_9px_rgba(245,158,11,.65)]' />}
+                  {piece && (
+                    <>
+                      {selectedControl && <span className='absolute h-[46px] w-[46px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
+                      <span className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-xl font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
                         {labels[piece.type][piece.color]}
                       </span>
-                    )}
-                    {showControl && (red > 0 || black > 0) && (
-                      <span className='absolute bottom-0 right-0 text-[8px] leading-none bg-amber-50/80 px-0.5 text-gray-800'>
-                        {red > 0 ? `R${red}` : ''}{red > 0 && black > 0 ? '/' : ''}{black > 0 ? `B${black}` : ''}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+                      {showControl && (red > 0 || black > 0) && (
+                        <span className='absolute -bottom-1 -right-1 z-20 flex min-w-4 items-center justify-center rounded-full border border-[#8c6338] bg-[#f3ddb5] px-0.5 text-[8px] font-bold leading-[14px] text-stone-800 shadow'>
+                          {red || 0}/{black || 0}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              );
+            }))}
+          </div>
         </div>
       </div>
+
       {inspected && inspectedControl && (
-        <div className='rounded bg-gray-900/60 px-3 py-2 text-xs text-gray-300'>
-          <span className='text-gray-400'>当前点 ({inspected.col + 1}, {10 - inspected.row})：</span>{' '}
+        <div className='rounded-xl border border-stone-700/70 bg-stone-900/60 px-4 py-3 text-xs text-stone-300'>
+          <span className='text-stone-400'>交点 ({inspected.col + 1}, {10 - inspected.row})：</span>{' '}
           <span className='text-red-400'>红方 {inspectedControl.counts.red}（{describe(inspectedControl.pieces.red)}）</span>{' · '}
-          <span className='text-slate-300'>黑方 {inspectedControl.counts.black}（{describe(inspectedControl.pieces.black)}）</span>
+          <span className='text-stone-200'>黑方 {inspectedControl.counts.black}（{describe(inspectedControl.pieces.black)}）</span>
         </div>
       )}
-      <div className='text-xs text-gray-400 text-center'>红色：红方控制 · 灰黑：黑方控制 · 紫色：双方控制 · 黄色边框：当前棋子的控制点 · 摆棋模式可自由调整局面</div>
+      <div className='text-center text-xs leading-5 text-stone-400'>红圈：红方控制 · 黑圈：黑方控制 · 紫圈：双方争夺 · 金色外圈：当前棋子的控制点 · 小数字：控制该点的棋子总数</div>
     </div>
-  );
-};
+  );};
