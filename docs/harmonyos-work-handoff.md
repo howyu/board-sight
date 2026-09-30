@@ -10,7 +10,11 @@ Use this checklist when opening BoardSight in ChatGPT Work / a DevEco Studio env
 - ArkTS compilation, resource compilation and HAP packing pass.
 - Fresh build after deleting generated caches: **33 tasks executed, 0 up-to-date**.
 - Web build/lint, chess parity and required-resource checks all pass.
-- No active devices or existing emulator instances were found on this host.
+- Downloaded the official phone image **HarmonyOS 7.0.0(26.0.0)**,
+  software version **7.0.0.107**; created `BoardSightPhone` successfully.
+- Headless emulator startup fails with **`KVM device not found`** and
+  **`KVM is not available.`** This host has no `/dev/kvm`; the instance remains
+  stopped and no device is connected. Runtime/UI acceptance is still unverified.
 - Output is **unsigned**; signing and emulator/real-device launch remain pending.
 - PR #12 stays Draft until the runtime/UI acceptance criteria are verified.
 - Historical notes below describe earlier checkpoints, not the current blocker.
@@ -37,6 +41,24 @@ Fixes required by the actual compiler:
 - Replace `Blank` children of `Stack` with empty `Row` background layers;
   `Blank` is only supported under Row, Column or Flex.
 - Ignore local build/cache outputs in Git.
+
+### Emulator attempt on 2026-09-30
+
+After reviewing and accepting the emulator agreements, the official 2.09 GB
+phone image downloaded successfully. Reproduce instance creation and startup:
+
+```bash
+devecocli emulator image download --device-type phone --os-version 'HarmonyOS 7.0.0(26.0.0)'
+devecocli emulator create BoardSightPhone --device-type phone --os-version 'HarmonyOS 7.0.0(26.0.0)'
+"$DEVECO_CLI_CLT_PATH/emulator/Emulator" -start BoardSightPhone -noWindow
+"$DEVECO_CLI_CLT_PATH/emulator/Emulator" -list -details
+```
+
+The launcher can return exit code 0 while printing the KVM failure; verify
+`isRunning` and an actual HDC connection rather than treating exit code as
+successful boot. Here `isRunning` is `false`. Continue on a host exposing KVM
+to the emulator, or on a connected HarmonyOS device with appropriate signing.
+Do not mark the display/touch checklist complete based on compilation alone.
 
 ## Target branch
 
