@@ -9,10 +9,10 @@ function App() {
   const [gameMode, setGameMode] = useState<GameMode>('chess');
 
   return (
-    <div className='min-h-screen w-full bg-gray-900 flex flex-col'>
+    <div className='min-h-screen w-full bg-[#0b1120] flex flex-col'>
       <Header />
-      <main className='flex-1 flex flex-col items-center p-4 gap-4'>
-        <div className='flex rounded-lg bg-gray-800 p-1 shadow'>
+      <main className='flex-1 flex flex-col items-center gap-5 p-4 sm:p-6'>
+        <div className='flex rounded-xl border border-slate-700/70 bg-slate-900/80 p-1 shadow-lg'>
           <button
             onClick={() => setGameMode('chess')}
             className={`px-4 py-2 rounded-md text-sm transition-colors ${gameMode === 'chess' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
@@ -26,7 +26,7 @@ function App() {
             中国象棋
           </button>
         </div>
-        <div className='bg-gray-800 rounded-lg shadow-lg p-4 max-w-full'>
+        <div className='max-w-full rounded-2xl border border-slate-800 bg-slate-900/70 p-3 shadow-2xl sm:p-5'>
           {gameMode === 'chess' ? <Board /> : <XiangqiBoard />}
         </div>
       </main>
