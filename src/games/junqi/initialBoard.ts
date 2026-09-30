@@ -12,11 +12,12 @@ const redTypes: JunqiPieceType[] = [
 // A deterministic legal-style hidden setup keeps demos reproducible.
 // Identity stays concealed through revealed=false; the rules engine still knows it.
 const blueTypes: JunqiPieceType[] = [
-  'lieutenant', 'captain', 'engineer', 'brigadier', 'major',
-  'captain', 'bomb', 'colonel', 'engineer', 'majorGeneral',
-  'general', 'lieutenant', 'major', 'brigadier', 'marshal',
-  'colonel', 'bomb', 'mine', 'majorGeneral', 'mine',
-  'mine', 'flag', 'engineer', 'captain', 'lieutenant',
+  'mine', 'flag', 'general', 'marshal', 'mine',
+  'mine', 'bomb', 'majorGeneral',
+  'engineer', 'colonel', 'captain', 'lieutenant',
+  'bomb', 'brigadier', 'major',
+  'engineer', 'colonel', 'captain', 'lieutenant', 'majorGeneral',
+  'brigadier', 'major', 'engineer', 'captain', 'lieutenant',
 ];
 
 export const createInitialJunqiBoard = (): (JunqiPiece | null)[][] => {
