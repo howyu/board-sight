@@ -15,7 +15,8 @@ const labels: Record<XiangqiPieceType, { red: string; black: string }> = {
 };
 
 export const XiangqiBoard: FC = () => {
-  const [board] = useState<(XiangqiPiece | null)[][]>(() => createInitialXiangqiBoard());
+  const [board, setBoard] = useState<(XiangqiPiece | null)[][]>(() => createInitialXiangqiBoard());
+  const [editMode, setEditMode] = useState(false);
   const [showControl, setShowControl] = useState(true);
   const [selected, setSelected] = useState<{ row: number; col: number } | null>(null);
   const control = useMemo(() => calculateControlMap(board, xiangqiControlAdapter), [board]);
@@ -30,6 +31,30 @@ export const XiangqiBoard: FC = () => {
     );
   }, [board, selected]);
 
+  const handlePointClick = (row: number, col: number) => {
+    const piece = board[row][col];
+
+    if (editMode && selected) {
+      if (selected.row === row && selected.col === col) {
+        setSelected(null);
+        return;
+      }
+      const next = board.map((boardRow) => [...boardRow]);
+      next[row][col] = next[selected.row][selected.col];
+      next[selected.row][selected.col] = null;
+      setBoard(next);
+      setSelected(null);
+      return;
+    }
+
+    setSelected(piece ? { row, col } : null);
+  };
+
+  const reset = () => {
+    setBoard(createInitialXiangqiBoard());
+    setSelected(null);
+  };
+
   return (
     <div className='flex flex-col gap-4'>
       <div className='flex flex-wrap items-center justify-between gap-2'>
@@ -37,12 +62,23 @@ export const XiangqiBoard: FC = () => {
           <h2 className='text-gray-100 font-semibold'>中国象棋 · 势力图</h2>
           <p className='text-xs text-gray-400'>点击棋子查看单子控制范围；数字表示双方控制该点的棋子数。</p>
         </div>
-        <button
-          onClick={() => setShowControl((v) => !v)}
-          className='px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-sm text-gray-100'
-        >
-          {showControl ? '隐藏全局势力' : '显示全局势力'}
-        </button>
+        <div className='flex flex-wrap gap-2'>
+          <button
+            onClick={() => { setEditMode((v) => !v); setSelected(null); }}
+            className={`px-3 py-2 rounded text-sm text-gray-100 ${editMode ? 'bg-amber-700 hover:bg-amber-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+          >
+            {editMode ? '结束摆棋' : '摆棋模式'}
+          </button>
+          <button onClick={reset} className='px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-sm text-gray-100'>
+            重置局面
+          </button>
+          <button
+            onClick={() => setShowControl((v) => !v)}
+            className='px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-sm text-gray-100'
+          >
+            {showControl ? '隐藏全局势力' : '显示全局势力'}
+          </button>
+        </div>
       </div>
 
       <div className='overflow-auto pb-2'>
@@ -72,7 +108,7 @@ export const XiangqiBoard: FC = () => {
                 return (
                   <button
                     key={key}
-                    onClick={() => setSelected(piece ? { row: rowIndex, col: colIndex } : null)}
+                    onClick={() => handlePointClick(rowIndex, colIndex)}
                     className={`relative w-11 h-11 border border-amber-800/50 flex items-center justify-center ${controlClass} ${selectedControl ? 'ring-2 ring-inset ring-yellow-500' : ''} ${isSelected ? 'ring-2 ring-inset ring-cyan-500' : ''}`}
                     title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]}` : undefined}
                   >
@@ -93,7 +129,7 @@ export const XiangqiBoard: FC = () => {
           ))}
         </div>
       </div>
-      <div className='text-xs text-gray-400 text-center'>红色：红方控制 · 灰黑：黑方控制 · 紫色：双方控制 · 黄色边框：当前棋子的控制点</div>
+      <div className='text-xs text-gray-400 text-center'>红色：红方控制 · 灰黑：黑方控制 · 紫色：双方控制 · 黄色边框：当前棋子的控制点 · 摆棋模式可自由调整局面</div>
     </div>
   );
 };
