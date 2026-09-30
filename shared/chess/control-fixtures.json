@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "game": "chess",
+  "semantics": "control-squares-not-legal-moves",
+  "positions": [
+    {
+      "id": "initial-position",
+      "description": "Standard chess starting position. Expected counts are generated from BoardSight control semantics, including occupied friendly/enemy squares at the end of sliding rays.",
+      "board": [
+        ["black-rook","black-knight","black-bishop","black-queen","black-king","black-bishop","black-knight","black-rook"],
+        ["black-pawn","black-pawn","black-pawn","black-pawn","black-pawn","black-pawn","black-pawn","black-pawn"],
+        [null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null],
+        ["white-pawn","white-pawn","white-pawn","white-pawn","white-pawn","white-pawn","white-pawn","white-pawn"],
+        ["white-rook","white-knight","white-bishop","white-queen","white-king","white-bishop","white-knight","white-rook"]
+      ],
+      "expectedControlCounts": [
+        ["0:0","0:1","0:1","0:1","0:1","0:1","0:1","0:0"],
+        ["0:1","0:1","0:1","0:4","0:4","0:1","0:1","0:1"],
+        ["0:2","0:2","0:3","0:2","0:2","0:3","0:2","0:2"],
+        ["0:0","0:0","0:0","0:0","0:0","0:0","0:0","0:0"],
+        ["0:0","0:0","0:0","0:0","0:0","0:0","0:0","0:0"],
+        ["2:0","2:0","3:0","2:0","2:0","3:0","2:0","2:0"],
+        ["1:0","1:0","1:0","4:0","4:0","1:0","1:0","1:0"],
+        ["0:0","1:0","1:0","1:0","1:0","1:0","1:0","0:0"]
+      ],
+      "selectedPieceFixtures": [
+        {
+          "square": "b1",
+          "piece": "white-knight",
+          "expectedControlledSquares": ["a3","c3"]
+        },
+        {
+          "square": "d1",
+          "piece": "white-queen",
+          "expectedControlledSquares": ["c1","e1","c2","d2","e2"]
+        },
+        {
+          "square": "e2",
+          "piece": "white-pawn",
+          "expectedControlledSquares": ["d3","f3"]
+        }
+      ]
+    }
+  ]
+}
