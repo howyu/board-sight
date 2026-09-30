@@ -28,6 +28,51 @@ const DefenseIcon: FC<{ compact?: boolean }> = ({ compact = false }) => (
   </svg>
 );
 
+interface MoveSuggestion {
+  notation: string;
+  score: number;
+  tags: string[];
+  from: { row: number; col: number };
+  to: { row: number; col: number };
+}
+
+const pieceValues: Record<XiangqiPieceType, number> = {
+  general: 10000,
+  chariot: 900,
+  cannon: 450,
+  horse: 400,
+  elephant: 200,
+  advisor: 200,
+  soldier: 100,
+};
+
+const evaluateBoard = (position: (XiangqiPiece | null)[][], perspective: XiangqiColor) => {
+  const map = calculateControlMap(position, xiangqiControlAdapter);
+  let score = 0;
+  position.forEach((row, rowIndex) => row.forEach((piece, colIndex) => {
+    if (!piece) return;
+    const sign = piece.color === perspective ? 1 : -1;
+    let value = pieceValues[piece.type];
+    if (piece.type === 'soldier') {
+      const crossedRiver = piece.color === 'red' ? rowIndex <= 4 : rowIndex >= 5;
+      if (crossedRiver) value += 35;
+    }
+    const cell = map[rowIndex][colIndex];
+    const attack = piece.color === 'red' ? cell.counts.black : cell.counts.red;
+    const defense = piece.color === 'red' ? cell.counts.red : cell.counts.black;
+    if (attack > 0 && defense === 0) value -= Math.min(pieceValues[piece.type] * 0.22, 150);
+    else if (attack > defense) value -= Math.min(pieceValues[piece.type] * 0.1, 75);
+    score += sign * value;
+  }));
+  let ownControl = 0;
+  let enemyControl = 0;
+  map.forEach((row) => row.forEach((cell) => {
+    ownControl += perspective === 'red' ? cell.counts.red : cell.counts.black;
+    enemyControl += perspective === 'red' ? cell.counts.black : cell.counts.red;
+  }));
+  return score + (ownControl - enemyControl) * 2;
+};
+
 const CountMarks: FC<{ count: number; kind: 'attack' | 'defense' }> = ({ count, kind }) => {
   if (count <= 0) return null;
   const Icon = kind === 'attack' ? AttackIcon : DefenseIcon;
@@ -65,6 +110,9 @@ export const XiangqiBoard: FC = () => {
   const [winner, setWinner] = useState<XiangqiColor | null>(null);
   const [lastMove, setLastMove] = useState<{ from: { row: number; col: number }; to: { row: number; col: number } } | null>(null);
   const [moveMessage, setMoveMessage] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<MoveSuggestion[]>([]);
+  const [analysisBusy, setAnalysisBusy] = useState(false);
+  const [analysisPreview, setAnalysisPreview] = useState<number | null>(null);
   const [moveRecords, setMoveRecords] = useState<XiangqiMoveRecord[]>([]);
   const [reviewIndex, setReviewIndex] = useState<number | null>(null);
   const [history, setHistory] = useState<Array<{
@@ -174,6 +222,60 @@ export const XiangqiBoard: FC = () => {
     setSelected(piece && piece.color === turn ? { row, col } : null);
   };
 
+  const analyzeCurrentPosition = () => {
+    if (winner || editMode) return;
+    setAnalysisBusy(true);
+    setAnalysisPreview(null);
+    window.setTimeout(() => {
+      const opponent: XiangqiColor = turn === 'red' ? 'black' : 'red';
+      const candidates: MoveSuggestion[] = [];
+
+      board.forEach((row, rowIndex) => row.forEach((piece, colIndex) => {
+        if (!piece || piece.color !== turn) return;
+        getLegalMovesForPiece(board, rowIndex, colIndex).forEach((to) => {
+          const from = { row: rowIndex, col: colIndex };
+          const captured = board[to.row][to.col];
+          const next = applyXiangqiMove(board, from, to);
+          let score = evaluateBoard(next, turn);
+          const tags: string[] = [];
+          if (captured) {
+            score += pieceValues[captured.type] * 0.35;
+            tags.push('吃子');
+          }
+          if (isGeneralInCheck(next, opponent)) {
+            score += 55;
+            tags.push('将军');
+          }
+          if (!hasAnyLegalMove(next, opponent)) {
+            score = 1_000_000;
+            tags.unshift('胜势');
+          }
+
+          const before = control[rowIndex][colIndex];
+          const beforeAttack = turn === 'red' ? before.counts.black : before.counts.red;
+          const beforeDefense = turn === 'red' ? before.counts.red : before.counts.black;
+          const nextMap = calculateControlMap(next, xiangqiControlAdapter);
+          const after = nextMap[to.row][to.col];
+          const afterAttack = turn === 'red' ? after.counts.black : after.counts.red;
+          const afterDefense = turn === 'red' ? after.counts.red : after.counts.black;
+          if (beforeAttack > 0 && afterAttack === 0) tags.push('脱险');
+          else if (afterDefense > beforeDefense) tags.push('加强保护');
+
+          candidates.push({
+            notation: formatXiangqiMove(piece, from, to),
+            score,
+            tags: tags.slice(0, 2),
+            from,
+            to,
+          });
+        });
+      }));
+
+      setSuggestions(candidates.sort((a, b) => b.score - a.score).slice(0, 3));
+      setAnalysisBusy(false);
+    }, 20);
+  };
+
   const undo = () => {
     const previous = history[history.length - 1];
     if (!previous) return;
@@ -187,6 +289,8 @@ export const XiangqiBoard: FC = () => {
     setInspected(null);
     setMoveMessage(null);
     setWinner(null);
+    setSuggestions([]);
+    setAnalysisPreview(null);
   };
 
   const reset = () => {
@@ -200,6 +304,8 @@ export const XiangqiBoard: FC = () => {
     setHistory([]);
     setMoveRecords([]);
     setReviewIndex(null);
+    setSuggestions([]);
+    setAnalysisPreview(null);
   };
 
   const inspectedControl = inspected ? control[inspected.row][inspected.col] : null;
@@ -300,6 +406,9 @@ export const XiangqiBoard: FC = () => {
               const isCheckingAttacker = checkingAttackers.has(key);
               const isCheckedGeneral = checkingTargets.has(key);
               const isCheckPath = checkingPath.has(key);
+              const previewMove = analysisPreview === null ? null : suggestions[analysisPreview];
+              const isAnalysisFrom = previewMove?.from.row === rowIndex && previewMove?.from.col === colIndex;
+              const isAnalysisTo = previewMove?.to.row === rowIndex && previewMove?.to.col === colIndex;
               const attackCount = piece ? (piece.color === 'red' ? black : red) : 0;
               const defenseCount = piece ? (piece.color === 'red' ? red : black) : 0;
               return (
@@ -311,6 +420,8 @@ export const XiangqiBoard: FC = () => {
                   title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]}` : undefined}
                 >
                   {(wasLastFrom || wasLastTo) && <span className={`pointer-events-none absolute h-10 w-10 rounded-full border-2 ${wasLastTo ? 'border-amber-700/80' : 'border-amber-700/45 border-dashed'}`} />}
+                  {isAnalysisFrom && <span className='pointer-events-none absolute h-[54px] w-[54px] rounded-full border-2 border-sky-700/70 border-dashed' />}
+                  {isAnalysisTo && <span className='pointer-events-none absolute h-[30px] w-[30px] rounded-full border-2 border-sky-600/90 bg-sky-200/15' />}
                   {isCheckPath && <span className='pointer-events-none absolute h-7 w-7 rounded-full bg-orange-500/18 ring-1 ring-orange-700/40' />}
                   {isCheckingAttacker && <span className='pointer-events-none absolute h-[58px] w-[58px] rounded-full border-[3px] border-orange-600/90 shadow-[0_0_10px_rgba(234,88,12,.45)]' />}
                   {isCheckedGeneral && <span className='pointer-events-none absolute h-[60px] w-[60px] rounded-full border-[3px] border-red-700/95 shadow-[0_0_12px_rgba(185,28,28,.55)]' />}
@@ -359,6 +470,44 @@ export const XiangqiBoard: FC = () => {
             <button onClick={() => setShowControl((v) => !v)} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>
               {showControl ? '隐藏势力提示' : '显示势力提示'}
             </button>
+          </div>
+
+          <div className='rounded-xl border border-sky-900/70 bg-sky-950/20 p-3 text-xs text-stone-300'>
+            <div className='mb-2 flex items-center justify-between gap-2'>
+              <div>
+                <div className='font-medium text-stone-100'>下一步建议</div>
+                <div className='mt-0.5 text-[10px] text-stone-500'>BoardSight 本地预分析 · Pikafish 接入前</div>
+              </div>
+              <button
+                onClick={analyzeCurrentPosition}
+                disabled={analysisBusy || winner !== null || editMode || reviewIndex !== null}
+                className='shrink-0 rounded-md border border-sky-800/80 bg-sky-950/50 px-2 py-1 text-[11px] text-sky-200 hover:bg-sky-900/60 disabled:cursor-not-allowed disabled:opacity-40'
+              >
+                {analysisBusy ? '计算中…' : '分析当前局面'}
+              </button>
+            </div>
+            {suggestions.length === 0 ? (
+              <div className='text-stone-500'>点击分析后给出 3 个候选着。当前评分只用于验证交互与解释框架，不代表专业引擎棋力。</div>
+            ) : (
+              <div className='space-y-1'>
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={`${suggestion.notation}-${index}`}
+                    onClick={() => setAnalysisPreview(analysisPreview === index ? null : index)}
+                    className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left transition ${analysisPreview === index ? 'bg-sky-900/60' : 'bg-stone-800/65 hover:bg-stone-700'}`}
+                  >
+                    <span>
+                      <span className='mr-1 text-stone-500'>#{index + 1}</span>
+                      <span className='font-medium text-stone-100'>{suggestion.notation}</span>
+                      {suggestion.tags.length > 0 && <span className='ml-2 text-[10px] text-sky-300'>{suggestion.tags.join(' · ')}</span>}
+                    </span>
+                    <span className='text-[10px] tabular-nums text-stone-500'>
+                      {suggestion.score >= 999000 ? '胜势' : `${suggestion.score >= 0 ? '+' : ''}${(suggestion.score / 100).toFixed(1)}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className='rounded-xl border border-stone-700/70 bg-stone-900/55 p-3 text-xs text-stone-300'>
