@@ -1,11 +1,12 @@
-import { FC, useMemo, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { calculateControlMap } from '../core/controlMap';
 import { xiangqiControlAdapter } from '../games/xiangqi/controlAdapter';
 import { createInitialXiangqiBoard } from '../games/xiangqi/initialBoard';
 import { applyXiangqiMove, getCheckThreats, getIllegalMoveReason, getLegalMovesForPiece, hasAnyLegalMove, isGeneralInCheck } from '../games/xiangqi/legalRules';
 import { formatXiangqiMove } from '../games/xiangqi/notation';
 import { XiangqiColor, XiangqiPiece, XiangqiPieceType } from '../games/xiangqi/types';
-import { analyzeWithPikafish } from '../engine/pikafishClient';
+import { getOpeningBookSuggestions } from '../games/xiangqi/openingBook';
+import { analyzeWithPikafish, warmupPikafish } from '../engine/pikafishClient';
 
 const labels: Record<XiangqiPieceType, { red: string; black: string }> = {
   general: { red: '帅', black: '将' },
@@ -36,6 +37,7 @@ interface MoveSuggestion {
   replyNotation?: string;
   depth?: number;
   pv?: string[];
+  source: 'book' | 'pikafish';
   from: { row: number; col: number };
   to: { row: number; col: number };
 }
@@ -81,6 +83,8 @@ export const XiangqiBoard: FC = () => {
   const [analysisBusy, setAnalysisBusy] = useState(false);
   const [analysisPreview, setAnalysisPreview] = useState<number | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [engineWarm, setEngineWarm] = useState(false);
+  const [engineWarmError, setEngineWarmError] = useState(false);
   const [moveRecords, setMoveRecords] = useState<XiangqiMoveRecord[]>([]);
   const [reviewIndex, setReviewIndex] = useState<number | null>(null);
   const [history, setHistory] = useState<Array<{
@@ -120,6 +124,20 @@ export const XiangqiBoard: FC = () => {
   const checkingAttackers = useMemo(() => new Set(checkThreats.map((threat) => `${threat.attacker.row}-${threat.attacker.col}`)), [checkThreats]);
   const checkingTargets = useMemo(() => new Set(checkThreats.map((threat) => `${threat.target.row}-${threat.target.col}`)), [checkThreats]);
   const checkingPath = useMemo(() => new Set(checkThreats.flatMap((threat) => threat.path.map((point) => `${point.row}-${point.col}`))), [checkThreats]);
+
+  useEffect(() => {
+    let active = true;
+    warmupPikafish()
+      .then(() => {
+        if (active) setEngineWarm(true);
+      })
+      .catch(() => {
+        if (active) setEngineWarmError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handlePointClick = (row: number, col: number) => {
     setInspected({ row, col });
@@ -197,8 +215,26 @@ export const XiangqiBoard: FC = () => {
     setAnalysisError(null);
     setSuggestions([]);
 
+    const bookSuggestions = getOpeningBookSuggestions(
+      board,
+      turn,
+      moveRecords.map((move) => move.notation),
+    );
+    if (bookSuggestions.length > 0) {
+      setSuggestions(bookSuggestions.map((suggestion) => ({
+        notation: suggestion.notation,
+        score: 0,
+        tags: ['开局库', suggestion.label],
+        source: 'book' as const,
+        from: suggestion.from,
+        to: suggestion.to,
+      })));
+      setAnalysisBusy(false);
+      return;
+    }
+
     try {
-      const engineSuggestions = await analyzeWithPikafish(board, turn, { movetime: 3500, multiPv: 3 });
+      const engineSuggestions = await analyzeWithPikafish(board, turn, { movetime: 2400, multiPv: 3 });
       const mapped: MoveSuggestion[] = engineSuggestions.map((suggestion) => {
         const piece = board[suggestion.from.row]?.[suggestion.from.col];
         if (!piece) {
@@ -206,6 +242,7 @@ export const XiangqiBoard: FC = () => {
             notation: suggestion.move,
             score: suggestion.scoreCp ?? 0,
             tags: ['Pikafish'],
+            source: 'pikafish' as const,
             depth: suggestion.depth,
             pv: suggestion.pv,
             from: suggestion.from,
@@ -234,6 +271,7 @@ export const XiangqiBoard: FC = () => {
             ? (suggestion.mate > 0 ? 1_000_000 - suggestion.mate : -1_000_000 - suggestion.mate)
             : suggestion.scoreCp ?? 0,
           tags: tags.slice(0, 2),
+          source: 'pikafish' as const,
           replyNotation,
           depth: suggestion.depth,
           pv: suggestion.pv,
@@ -459,7 +497,11 @@ export const XiangqiBoard: FC = () => {
             <div className='mb-2 flex items-center justify-between gap-2'>
               <div>
                 <div className='font-medium text-stone-100'>下一步建议</div>
-                <div className='mt-0.5 text-[10px] text-stone-500'>Pikafish · MultiPV 3 · 浏览器本地计算</div>
+                <div className='mt-0.5 text-[10px] text-stone-500'>
+                  {moveRecords.length <= 5 ? '开局库优先' : 'Pikafish · MultiPV 3'}
+                  {' · '}
+                  {engineWarm ? '引擎已预热' : engineWarmError ? '引擎预热失败' : '后台预热中'}
+                </div>
               </div>
               <button
                 onClick={analyzeCurrentPosition}
@@ -471,7 +513,7 @@ export const XiangqiBoard: FC = () => {
             </div>
             {analysisError && <div className='mb-2 rounded border border-red-900/70 bg-red-950/30 px-2 py-1.5 text-red-300'>{analysisError}</div>}
             {suggestions.length === 0 ? (
-              <div className='text-stone-500'>点击后由 Pikafish 搜索当前局面，返回 3 个候选着及主变化。首次使用需加载 WASM 与 NNUE，可能稍慢。</div>
+              <div className='text-stone-500'>前 3–5 个半回合优先从常见开局库秒回；同时页面打开后已在后台预热 Pikafish。离开开局库后直接复用已加载的引擎。</div>
             ) : (
               <div className='space-y-1'>
                 {suggestions.map((suggestion, index) => (
@@ -488,7 +530,7 @@ export const XiangqiBoard: FC = () => {
                       {suggestion.depth && <span className='mt-0.5 block pl-5 text-[9px] text-stone-600'>搜索深度 D{suggestion.depth}</span>}
                     </span>
                     <span className='text-[10px] tabular-nums text-stone-500'>
-                      {suggestion.score >= 999000 ? '胜势' : `${suggestion.score >= 0 ? '+' : ''}${(suggestion.score / 100).toFixed(1)}`}
+                      {suggestion.source === 'book' ? '开局' : suggestion.score >= 999000 ? '胜势' : `${suggestion.score >= 0 ? '+' : ''}${(suggestion.score / 100).toFixed(1)}`}
                     </span>
                   </button>
                 ))}
