@@ -1,7 +1,6 @@
 import { FC, useMemo, useState } from 'react';
-import { buildCoupledBeliefs } from '../games/junqi/beliefState';
 import { generateJunqiCandidates, chooseBlueMove, formatMoveRecord } from '../games/junqi/decision';
-import { applyJunqiMove, createJunqiGameState } from '../games/junqi/game';
+import { applyJunqiMove, createJunqiGameState, getBeliefsForState } from '../games/junqi/game';
 import { createInitialJunqiBoard } from '../games/junqi/initialBoard';
 import { getLegalJunqiDestinations } from '../games/junqi/rules';
 import { calculateJunqiRiskMap } from '../games/junqi/sight';
@@ -40,8 +39,8 @@ export const JunqiBoard: FC = () => {
   const [message, setMessage] = useState('红方先行。点选我方棋子，再点绿色目标格走棋。');
 
   const beliefs = useMemo(
-    () => buildCoupledBeliefs(game.board, game.observations),
-    [game.board, game.observations]
+    () => getBeliefsForState(game),
+    [game]
   );
 
   const risk = useMemo(
