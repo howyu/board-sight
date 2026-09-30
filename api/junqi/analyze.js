@@ -15,11 +15,28 @@ export default async function handler(req, res) {
     return send(res, 503, { error: 'jev_not_configured' });
   }
 
+  const origin = req.headers.origin;
+  const host = req.headers['x-forwarded-host'] ?? req.headers.host;
+  if (origin && host) {
+    try {
+      if (new URL(origin).host !== host) {
+        return send(res, 403, { error: 'cross_origin_forbidden' });
+      }
+    } catch {
+      return send(res, 403, { error: 'invalid_origin' });
+    }
+  }
+
   const body = req.body ?? {};
   const state = body.state;
   const candidates = Array.isArray(body.candidates) ? body.candidates : [];
+  const bodySize = JSON.stringify(body).length;
 
-  if (!state || candidates.length < 2 || candidates.length > 24) {
+  if (bodySize > 64000) {
+    return send(res, 413, { error: 'request_too_large' });
+  }
+
+  if (!state || candidates.length < 2 || candidates.length > 16) {
     return send(res, 400, { error: 'invalid_request' });
   }
 
