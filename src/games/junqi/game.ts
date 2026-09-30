@@ -36,6 +36,19 @@ const appendObservation = (
   [pieceId]: [...(observations[pieceId] ?? []), observation],
 });
 
+const revealFlag = (
+  board: (JunqiPiece | null)[][],
+  color: JunqiColor
+) => {
+  board.forEach((row) => {
+    row.forEach((piece, col) => {
+      if (piece?.color === color && piece.type === 'flag' && !piece.revealed) {
+        row[col] = { ...piece, revealed: true };
+      }
+    });
+  });
+};
+
 export const createJunqiGameState = (
   board: (JunqiPiece | null)[][]
 ): JunqiGameState => ({
@@ -73,6 +86,7 @@ export const applyJunqiMove = (
   let winner = state.winner;
   let outcome: JunqiMoveRecord['outcome'] = 'move';
   let message = '移动完成。';
+  let lostMarshalColor: JunqiColor | null = null;
 
   if (piece.color === 'blue' && !piece.revealed) {
     observations = appendObservation(observations, piece.id, { kind: 'moved' });
@@ -89,8 +103,16 @@ export const applyJunqiMove = (
     const combat = resolveJunqiCombat(piece.type, defender.type);
     outcome = combat;
 
-    const hiddenBlue = piece.color === 'blue' ? piece : defender.color === 'blue' ? defender : null;
-    const knownRed = piece.color === 'red' ? piece : defender.color === 'red' ? defender : null;
+    const hiddenBlue = piece.color === 'blue'
+      ? piece
+      : defender.color === 'blue'
+        ? defender
+        : null;
+    const knownRed = piece.color === 'red'
+      ? piece
+      : defender.color === 'red'
+        ? defender
+        : null;
 
     if (hiddenBlue && knownRed && !hiddenBlue.revealed) {
       let observation: JunqiObservation | null = null;
@@ -117,12 +139,16 @@ export const applyJunqiMove = (
     }
 
     if (combat === 'attacker') {
+      if (defender.type === 'marshal') lostMarshalColor = defender.color;
       board[to.row][to.col] = piece;
       message = piece.color === 'red' ? '我方进攻成功。' : '蓝方进攻成功。';
     } else if (combat === 'defender') {
+      if (piece.type === 'marshal') lostMarshalColor = piece.color;
       board[to.row][to.col] = defender;
       message = piece.color === 'red' ? '我方进攻失败。' : '蓝方进攻失败。';
     } else if (combat === 'both') {
+      if (piece.type === 'marshal') lostMarshalColor = piece.color;
+      if (defender.type === 'marshal') lostMarshalColor = defender.color;
       board[to.row][to.col] = null;
       message = '双方同归于尽。';
     } else {
@@ -130,6 +156,11 @@ export const applyJunqiMove = (
       winner = piece.color;
       message = `${piece.color === 'red' ? '红方' : '蓝方'}夺取军旗，对局结束。`;
     }
+  }
+
+  if (lostMarshalColor) {
+    revealFlag(board, lostMarshalColor);
+    message += ` ${lostMarshalColor === 'red' ? '红方' : '蓝方'}司令阵亡，军旗位置公开。`;
   }
 
   const nextTurn: JunqiColor = state.turn === 'red' ? 'blue' : 'red';
