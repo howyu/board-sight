@@ -58,8 +58,8 @@ The HarmonyOS MVP mirrors those contracts in ArkTS. The next refactor should mov
 
 ## Next milestones
 
-1. Add shared control-map fixtures and parity tests.
-2. Add native piece selection and legal moves.
+1. Add shared control-map fixtures and parity tests. **Fixture source now exists at `shared/chess/control-fixtures.json`; automated runners are the next step.**
+2. Add native piece selection and legal moves. **Piece selection/control-range highlighting is now implemented; legal moves remain next.**
 3. Add training-position JSON shared by Web and HarmonyOS.
 4. Add “why is this square controlled?” explanations.
 5. Integrate optional engine analysis after the interaction loop is stable.
