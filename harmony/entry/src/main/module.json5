@@ -27,7 +27,9 @@
               "ohos.want.action.home"
             ]
           }
-        ]
+        ],
+        "startWindowIcon": "$media:app_icon",
+        "startWindowBackground": "$color:start_window_background"
       }
     ]
   }

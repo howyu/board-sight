@@ -100,3 +100,20 @@ acceptance from the Node checks.
 
 Validation on this host: `npm run check:chess-parity`, `npm run build`,
 `npm run lint` and `git diff --check` pass. Native compilation remains unverified.
+
+## Toolchain and launch-resource checkpoint — 2026-09-30
+
+Installed official `@deveco/deveco-cli` 1.3.0-stable in this Work session.
+Running `devecocli build --modules entry --build-mode debug` on Linux stops
+with: `DevEco Studio is not available on Linux. Set DEVECO_CLI_CLT_PATH to a
+Command Line Tools installation.` The CLI alone does not install that toolchain.
+The official download page is reachable, but the installation archive has not
+been obtained. The container also has no `/dev/kvm` device.
+
+Found a manifest bug by checking the official documentation bundled in DevEco
+CLI (`app-configuration-file` and `module-configuration-file`): app.icon,
+EntryAbility.startWindowIcon and EntryAbility.startWindowBackground were absent
+although mandatory. Added a shared SVG app icon and launch background color.
+`npm run check:harmony-resources` now checks these resource references in CI.
+The original manifests fail this check; the corrected manifests pass.
+This is a configuration/resource check, not a native build or launch result.
