@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - refactor/boardsight-core
+      - 'feat/**'
   pull_request:
     branches:
       - main
