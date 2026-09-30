@@ -167,6 +167,6 @@ export const XiangqiBoard: FC = () => {
           <span className='text-stone-200'>黑方 {inspectedControl.counts.black}（{describe(inspectedControl.pieces.black)}）</span>
         </div>
       )}
-      <div className='text-center text-xs leading-5 text-stone-400'>红圈：红方控制 · 黑圈：黑方控制 · 紫圈：双方争夺 · 金色外圈：当前棋子的控制点 · 小数字：控制该点的棋子总数</div>
+      <div className='text-center text-xs leading-5 text-stone-400'>红圈：红方控制 · 黑圈：黑方控制 · 紫圈：双方争夺 · 金色外圈：当前棋子的控制点 · 小数字：控制该点的棋子总数 · 点选交点可查看势力来源</div>
     </div>
   );};
