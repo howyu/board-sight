@@ -16,13 +16,13 @@ const labels: Record<XiangqiPieceType, { red: string; black: string }> = {
 };
 
 const AttackIcon: FC = () => (
-  <svg viewBox='0 0 18 18' className='h-3.5 w-3.5' aria-hidden='true'>
+  <svg viewBox='0 0 18 18' className='h-3 w-3' aria-hidden='true'>
     <path d='M3 2.5 13.5 13M5.2 2.4 3 2.5l.1 2.2M12.8 12.3l2.5 2.5M15 13.2l-1.8 1.8M15 2.5 4.5 13M12.8 2.4l2.2.1-.1 2.2M5.2 12.3l-2.5 2.5M3 13.2 4.8 15' fill='none' stroke='currentColor' strokeWidth='1.55' strokeLinecap='round' strokeLinejoin='round' />
   </svg>
 );
 
 const DefenseIcon: FC<{ compact?: boolean }> = ({ compact = false }) => (
-  <svg viewBox='0 0 16 16' className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} aria-hidden='true'>
+  <svg viewBox='0 0 16 16' className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} aria-hidden='true'>
     <path d='M8 1.8 13 3.6v3.7c0 3.1-1.9 5.4-5 6.9-3.1-1.5-5-3.8-5-6.9V3.6L8 1.8Z' fill='none' stroke='currentColor' strokeWidth='1.6' strokeLinejoin='round' />
   </svg>
 );
@@ -33,14 +33,14 @@ const CountMarks: FC<{ count: number; kind: 'attack' | 'defense' }> = ({ count, 
   const tone = kind === 'attack' ? 'text-[#a5231c]' : 'text-[#45513d]';
   if (count <= 3) {
     return (
-      <span className={`flex items-center -space-x-1 ${tone}`} aria-label={`${kind === 'attack' ? '被攻击' : '被保护'} ${count} 次`}>
+      <span className={`flex items-center -space-x-1.5 ${tone}`} aria-label={`${kind === 'attack' ? '被攻击' : '被保护'} ${count} 次`}>
         {Array.from({ length: count }).map((_, index) => <Icon key={index} compact />)}
       </span>
     );
   }
   return (
     <span className={`flex items-center gap-0.5 ${tone}`} aria-label={`${kind === 'attack' ? '被攻击' : '被保护'} ${count} 次`}>
-      <Icon /><span className='text-[10px] font-bold leading-none'>{count}</span>
+      <Icon /><span className='text-[9px] font-bold leading-none'>{count}</span>
     </span>
   );
 };
@@ -256,15 +256,15 @@ export const XiangqiBoard: FC = () => {
                   {piece && (
                     <>
                       {selectedControl && <span className='absolute h-[46px] w-[46px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
-                      <span className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-[24px] font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
+                      <span className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-[21px] font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
                         {labels[piece.type][piece.color]}
                       </span>
                       {showControl && (
                         <>
-                          <span className='pointer-events-none absolute -bottom-1.5 -left-1.5 z-30' title={`被对方攻击 ${attackCount} 次`}>
+                          <span className='pointer-events-none absolute bottom-0.5 left-1 z-30' title={`被对方攻击 ${attackCount} 次`}>
                             <CountMarks count={attackCount} kind='attack' />
                           </span>
-                          <span className='pointer-events-none absolute -bottom-1.5 -right-1.5 z-30' title={`被己方保护 ${defenseCount} 次`}>
+                          <span className='pointer-events-none absolute bottom-0.5 right-1 z-30' title={`被己方保护 ${defenseCount} 次`}>
                             <CountMarks count={defenseCount} kind='defense' />
                           </span>
                         </>
