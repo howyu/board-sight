@@ -185,16 +185,21 @@ export const XiangqiBoard: FC = () => {
                   title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]}` : undefined}
                 >
                   {showControl && (red > 0 || black > 0) && !piece && (
-                    <span className={`absolute h-3.5 w-3.5 rounded-full border-2 ${contested ? 'border-violet-700 bg-violet-200/75' : red > 0 ? 'border-[#a42b24] bg-red-100/75' : 'border-stone-800 bg-stone-200/80'}`}>
-                      {(red + black) > 1 && <span className='absolute -right-2 -top-2 rounded-full bg-[#f2d9ad] px-1 text-[8px] font-bold leading-3 text-stone-800 shadow'>{red + black}</span>}
+                    <span className={`absolute h-8 w-8 rounded-full border ${contested ? 'border-violet-700/80 bg-violet-500/18 shadow-[0_0_15px_rgba(109,40,217,.55)]' : red > 0 ? 'border-red-800/70 bg-red-500/12 shadow-[0_0_14px_rgba(153,27,27,.48)]' : 'border-stone-700/80 bg-stone-700/12 shadow-[0_0_14px_rgba(41,37,36,.5)]'}`}>
+                      <span className='absolute inset-[9px] rounded-full bg-current opacity-55' />
+                      {(red + black) > 1 && <span className='absolute -right-2.5 -top-2.5 rounded-full border border-[#9b6c3c] bg-[#f2d9ad] px-1 text-[8px] font-bold leading-3 text-stone-800 shadow'>{red + black}</span>}
                     </span>
                   )}
-                  {legalMove && !piece && <span className='absolute z-20 h-3 w-3 rounded-full bg-emerald-700 shadow-[0_0_0_3px_rgba(240,211,155,.8)]' />}
-                  {captureTarget && <span className='absolute z-20 h-[46px] w-[46px] rounded-full border-[3px] border-red-700/90 shadow-[0_0_9px_rgba(153,27,27,.45)]' />}
-                  {selectedControl && !legalMove && !piece && <span className='absolute h-5 w-5 rounded-full border-2 border-amber-500 bg-amber-200/25 shadow-[0_0_9px_rgba(245,158,11,.65)]' />}
+                  {legalMove && !piece && (
+                    <span className='absolute z-20 h-9 w-9 rounded-full border-2 border-emerald-800/80 bg-emerald-500/18 shadow-[0_0_17px_rgba(4,120,87,.75)]'>
+                      <span className='absolute inset-[12px] rounded-full bg-emerald-800' />
+                    </span>
+                  )}
+                  {captureTarget && <span className='absolute z-20 h-[48px] w-[48px] rounded-full border-[3px] border-red-700/95 bg-red-600/10 shadow-[0_0_18px_rgba(185,28,28,.78)]' />}
+                  {selectedControl && !legalMove && !piece && <span className='absolute h-9 w-9 rounded-full border-2 border-amber-500/90 bg-amber-300/14 shadow-[0_0_18px_rgba(245,158,11,.68)]' />}
                   {piece && (
                     <>
-                      {selectedControl && <span className='absolute h-[46px] w-[46px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
+                      {selectedControl && <span className='absolute h-[48px] w-[48px] rounded-full border-[3px] border-amber-400/90 bg-amber-300/10 shadow-[0_0_18px_rgba(245,158,11,.68)]' />}
                       <span className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-xl font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
                         {labels[piece.type][piece.color]}
                       </span>
@@ -219,6 +224,6 @@ export const XiangqiBoard: FC = () => {
           <span className='text-stone-200'>黑方 {inspectedControl.counts.black}（{describe(inspectedControl.pieces.black)}）</span>
         </div>
       )}
-      <div className='text-center text-xs leading-5 text-stone-400'>绿点：可移动位置 · 红色大圈：可吃子目标 · 红/黑小圈：双方控制 · 紫圈：双方争夺 · 金色：当前棋子的控制范围 · 悔棋可连续撤销已走步数</div>
+      <div className='text-center text-xs leading-5 text-stone-400'>绿色光晕：可移动位置 · 红色光圈：可吃子目标 · 红/黑阴影：双方控制 · 紫色光晕：双方争夺 · 金色光晕：当前棋子的控制范围 · 悔棋可连续撤销已走步数</div>
     </div>
   );};
