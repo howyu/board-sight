@@ -25,9 +25,9 @@ export const useDomination = (pieces: (PieceState | null)[][]) => {
 
   const getDominationStyle = (count: DominationCount) => {
     if (count.white === 0 && count.black === 0) return '';
-    if (count.white > count.black) return 'bg-blue-500/30';
-    if (count.black > count.white) return 'bg-red-500/30';
-    return 'bg-purple-500/30';
+    if (count.white > count.black) return 'shadow-[inset_0_0_0_3px_rgba(34,211,238,0.50)]';
+    if (count.black > count.white) return 'shadow-[inset_0_0_0_3px_rgba(251,113,133,0.50)]';
+    return 'shadow-[inset_0_0_0_3px_rgba(167,139,250,0.62)]';
   };
 
   const getDominationText = (count: DominationCount) => {
