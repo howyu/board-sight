@@ -66,7 +66,7 @@ export const applyJunqiObservation = (
     case 'wonCombat': {
       const defeated = observation.defeated;
       if (defeated === 'mine') {
-        return filterBelief(belief, (type) => type === 'engineer' || type === 'bomb');
+        return filterBelief(belief, (type) => type === 'engineer');
       }
       if (defeated === 'flag') return belief;
       if (defeated === 'bomb') return filterBelief(belief, (type) => type === 'bomb');
@@ -75,8 +75,7 @@ export const applyJunqiObservation = (
       return filterBelief(
         belief,
         (type) =>
-          type === 'bomb' ||
-          (strength[type] !== undefined && (strength[type] as number) > target)
+          strength[type] !== undefined && (strength[type] as number) > target
       );
     }
 
