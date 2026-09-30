@@ -20,6 +20,7 @@ export const XiangqiBoard: FC = () => {
   const [showControl, setShowControl] = useState(true);
   const [selected, setSelected] = useState<{ row: number; col: number } | null>(null);
   const [inspected, setInspected] = useState<{ row: number; col: number } | null>(null);
+  const [turn, setTurn] = useState<'red' | 'black'>('red');
   const control = useMemo(() => calculateControlMap(board, xiangqiControlAdapter), [board]);
   const selectedSquares = useMemo(() => {
     if (!selected) return new Set<string>();
@@ -28,6 +29,17 @@ export const XiangqiBoard: FC = () => {
     return new Set(
       xiangqiControlAdapter
         .getControlledSquares(board, selected.row, selected.col, piece)
+        .map((p) => `${p.row}-${p.col}`)
+    );
+  }, [board, selected]);
+
+  const legalMoves = useMemo(() => {
+    if (!selected) return new Set<string>();
+    const piece = board[selected.row][selected.col];
+    if (!piece) return new Set<string>();
+    return new Set(
+      xiangqiControlAdapter.getControlledSquares(board, selected.row, selected.col, piece)
+        .filter((p) => board[p.row][p.col]?.color !== piece.color)
         .map((p) => `${p.row}-${p.col}`)
     );
   }, [board, selected]);
@@ -49,13 +61,28 @@ export const XiangqiBoard: FC = () => {
       return;
     }
 
-    setSelected(piece ? { row, col } : null);
+    if (selected) {
+      const movingPiece = board[selected.row][selected.col];
+      const targetKey = `${row}-${col}`;
+      if (movingPiece && legalMoves.has(targetKey)) {
+        const next = board.map((boardRow) => [...boardRow]);
+        next[row][col] = movingPiece;
+        next[selected.row][selected.col] = null;
+        setBoard(next);
+        setSelected(null);
+        setTurn(movingPiece.color === 'red' ? 'black' : 'red');
+        return;
+      }
+    }
+
+    setSelected(piece && piece.color === turn ? { row, col } : null);
   };
 
   const reset = () => {
     setBoard(createInitialXiangqiBoard());
     setSelected(null);
     setInspected(null);
+    setTurn('red');
   };
 
   const inspectedControl = inspected ? control[inspected.row][inspected.col] : null;
@@ -77,7 +104,7 @@ export const XiangqiBoard: FC = () => {
     <div className='flex flex-col gap-5'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <h2 className='font-serif text-xl font-semibold tracking-[0.12em] text-amber-100'>中国象棋 · 棋势</h2>
+          <div className='flex items-center gap-3'><h2 className='font-serif text-xl font-semibold tracking-[0.12em] text-amber-100'>中国象棋 · 棋势</h2><span className={`rounded-full border px-2 py-0.5 text-xs ${turn === 'red' ? 'border-red-700/70 text-red-300' : 'border-stone-500 text-stone-200'}`}>{turn === 'red' ? '红方行棋' : '黑方行棋'}</span></div>
           <p className='mt-1 text-xs text-stone-400'>棋子落在线的交点上。点选棋子查看其行棋与控制范围，点选交点查看双方势力来源。</p>
         </div>
         <div className='flex flex-wrap gap-2'>
@@ -126,6 +153,8 @@ export const XiangqiBoard: FC = () => {
               const red = cell.counts.red;
               const black = cell.counts.black;
               const contested = red > 0 && black > 0;
+              const legalMove = legalMoves.has(key);
+              const captureTarget = legalMove && Boolean(piece) && piece?.color !== board[selected?.row ?? rowIndex]?.[selected?.col ?? colIndex]?.color;
               return (
                 <button
                   key={key}
@@ -139,7 +168,9 @@ export const XiangqiBoard: FC = () => {
                       {(red + black) > 1 && <span className='absolute -right-2 -top-2 rounded-full bg-[#f2d9ad] px-1 text-[8px] font-bold leading-3 text-stone-800 shadow'>{red + black}</span>}
                     </span>
                   )}
-                  {selectedControl && !piece && <span className='absolute h-5 w-5 rounded-full border-2 border-amber-500 bg-amber-200/25 shadow-[0_0_9px_rgba(245,158,11,.65)]' />}
+                  {legalMove && !piece && <span className='absolute z-20 h-3 w-3 rounded-full bg-emerald-700 shadow-[0_0_0_3px_rgba(240,211,155,.8)]' />}
+                  {captureTarget && <span className='absolute z-20 h-[46px] w-[46px] rounded-full border-[3px] border-red-700/90 shadow-[0_0_9px_rgba(153,27,27,.45)]' />}
+                  {selectedControl && !legalMove && !piece && <span className='absolute h-5 w-5 rounded-full border-2 border-amber-500 bg-amber-200/25 shadow-[0_0_9px_rgba(245,158,11,.65)]' />}
                   {piece && (
                     <>
                       {selectedControl && <span className='absolute h-[46px] w-[46px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
@@ -167,6 +198,6 @@ export const XiangqiBoard: FC = () => {
           <span className='text-stone-200'>黑方 {inspectedControl.counts.black}（{describe(inspectedControl.pieces.black)}）</span>
         </div>
       )}
-      <div className='text-center text-xs leading-5 text-stone-400'>红圈：红方控制 · 黑圈：黑方控制 · 紫圈：双方争夺 · 金色外圈：当前棋子的控制点 · 小数字：控制该点的棋子总数 · 点选交点可查看势力来源</div>
+      <div className='text-center text-xs leading-5 text-stone-400'>绿点：可移动位置 · 红色大圈：可吃子目标 · 红/黑小圈：双方控制 · 紫圈：双方争夺 · 金色：当前棋子的控制范围 · 点选交点可查看势力来源</div>
     </div>
   );};
