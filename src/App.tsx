@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Board } from './components/Board';
+import { JunqiBoard } from './components/JunqiBoard';
 import { XiangqiBoard } from './components/XiangqiBoard';
 import Header from './components/Header';
 
-type GameMode = 'chess' | 'xiangqi';
+type GameMode = 'chess' | 'xiangqi' | 'junqi';
 
 function App() {
   const [gameMode, setGameMode] = useState<GameMode>('chess');
@@ -12,7 +13,7 @@ function App() {
     <div className='min-h-screen w-full bg-gray-900 flex flex-col'>
       <Header />
       <main className='flex-1 flex flex-col items-center p-4 gap-4'>
-        <div className='flex rounded-lg bg-gray-800 p-1 shadow'>
+        <div className='flex flex-wrap justify-center rounded-lg bg-gray-800 p-1 shadow'>
           <button
             onClick={() => setGameMode('chess')}
             className={`px-4 py-2 rounded-md text-sm transition-colors ${gameMode === 'chess' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
@@ -25,9 +26,17 @@ function App() {
           >
             中国象棋
           </button>
+          <button
+            onClick={() => setGameMode('junqi')}
+            className={`px-4 py-2 rounded-md text-sm transition-colors ${gameMode === 'junqi' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+          >
+            中国军旗
+          </button>
         </div>
         <div className='bg-gray-800 rounded-lg shadow-lg p-4 max-w-full'>
-          {gameMode === 'chess' ? <Board /> : <XiangqiBoard />}
+          {gameMode === 'chess' && <Board />}
+          {gameMode === 'xiangqi' && <XiangqiBoard />}
+          {gameMode === 'junqi' && <JunqiBoard />}
         </div>
       </main>
     </div>
