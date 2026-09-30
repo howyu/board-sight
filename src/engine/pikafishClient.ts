@@ -13,6 +13,13 @@ export interface PikafishSuggestion {
   to: Point;
 }
 
+type InfoRow = {
+  scoreCp?: number;
+  mate?: number;
+  depth?: number;
+  pv: string[];
+};
+
 const ENGINE_COMMIT = '00ac398c8867c22d638630f8752e7a5ad8f98aca';
 const ENGINE_BASE = `https://raw.githubusercontent.com/billzi2016/Chinese-Chess-AI-Pro/${ENGINE_COMMIT}`;
 const ENGINE_JS = `${ENGINE_BASE}/js/worker/pikafish-engine.js`;
@@ -99,123 +106,196 @@ const patchEngineSource = (source: string): string => {
     );
 };
 
-export const analyzeWithPikafish = async (
+class PikafishEngine {
+  private worker: Worker | null = null;
+  private blobUrl: string | null = null;
+  private readyPromise: Promise<void> | null = null;
+  private readyResolve: (() => void) | null = null;
+  private readyReject: ((reason?: unknown) => void) | null = null;
+  private latest = new Map<number, InfoRow>();
+  private pending: {
+    resolve: (rows: PikafishSuggestion[]) => void;
+    reject: (reason?: unknown) => void;
+    multiPv: number;
+    timeoutId: number;
+  } | null = null;
+  private cache = new Map<string, PikafishSuggestion[]>();
+
+  warmup(): Promise<void> {
+    if (this.readyPromise) return this.readyPromise;
+    if (typeof Worker === 'undefined' || typeof WebAssembly === 'undefined') {
+      return Promise.reject(new Error('当前浏览器不支持 Pikafish 所需的 Web Worker / WebAssembly。'));
+    }
+
+    this.readyPromise = new Promise<void>((resolve, reject) => {
+      this.readyResolve = resolve;
+      this.readyReject = reject;
+    });
+
+    void this.start();
+    return this.readyPromise;
+  }
+
+  private async start() {
+    try {
+      const sourceResponse = await fetch(ENGINE_JS);
+      if (!sourceResponse.ok) throw new Error(`Pikafish 引擎脚本下载失败：HTTP ${sourceResponse.status}`);
+      const patchedSource = patchEngineSource(await sourceResponse.text());
+      this.blobUrl = URL.createObjectURL(new Blob([patchedSource], { type: 'text/javascript' }));
+      this.worker = new Worker(this.blobUrl);
+
+      this.worker.onerror = (event) => {
+        const error = new Error(event.message || 'Pikafish Worker 启动失败。');
+        this.readyReject?.(error);
+        this.failPending(error);
+        this.reset();
+      };
+
+      this.worker.onmessage = (event) => this.handleMessage(event.data ?? {});
+      this.worker.postMessage({ type: 'INIT' });
+    } catch (error) {
+      this.readyReject?.(error);
+      this.reset();
+    }
+  }
+
+  private handleMessage(data: {
+    type?: string;
+    threads?: number;
+    move?: string;
+    message?: string;
+    info?: { multipv?: number; score?: number; mate?: number; depth?: number; pv?: string[] };
+  }) {
+    if (data.type === 'READY') {
+      this.readyResolve?.();
+      this.readyResolve = null;
+      this.readyReject = null;
+      return;
+    }
+
+    if (data.type === 'INFO' && data.info) {
+      const key = data.info.multipv ?? 1;
+      if (Array.isArray(data.info.pv) && data.info.pv.length) {
+        this.latest.set(key, {
+          scoreCp: typeof data.info.score === 'number' ? data.info.score : undefined,
+          mate: typeof data.info.mate === 'number' ? data.info.mate : undefined,
+          depth: data.info.depth,
+          pv: data.info.pv,
+        });
+      }
+      return;
+    }
+
+    if (data.type === 'ERROR') {
+      const error = new Error(data.message || 'Pikafish 引擎错误。');
+      this.failPending(error);
+      return;
+    }
+
+    if (data.type === 'BEST_MOVE' && this.pending) {
+      const rows: PikafishSuggestion[] = [];
+      for (const [multipv, info] of Array.from(this.latest.entries()).sort(([a], [b]) => a - b)) {
+        const move = info.pv[0] || (multipv === 1 ? data.move ?? '' : '');
+        const points = uciMoveToPoints(move);
+        if (!move || !points) continue;
+        rows.push({
+          move,
+          scoreCp: info.scoreCp,
+          mate: info.mate,
+          depth: info.depth,
+          pv: info.pv,
+          multipv,
+          ...points,
+        });
+        if (rows.length >= this.pending.multiPv) break;
+      }
+
+      if (!rows.length && data.move) {
+        const points = uciMoveToPoints(data.move);
+        if (points) {
+          rows.push({
+            move: data.move,
+            scoreCp: typeof data.info?.score === 'number' ? data.info.score : undefined,
+            mate: typeof data.info?.mate === 'number' ? data.info.mate : undefined,
+            depth: data.info?.depth,
+            pv: [data.move],
+            multipv: 1,
+            ...points,
+          });
+        }
+      }
+
+      const pending = this.pending;
+      this.pending = null;
+      window.clearTimeout(pending.timeoutId);
+      rows.length ? pending.resolve(rows) : pending.reject(new Error('Pikafish 没有返回可解析的候选着。'));
+    }
+  }
+
+  private failPending(error: Error) {
+    if (!this.pending) return;
+    window.clearTimeout(this.pending.timeoutId);
+    this.pending.reject(error);
+    this.pending = null;
+  }
+
+  async analyze(
+    board: (XiangqiPiece | null)[][],
+    turn: XiangqiColor,
+    options: { movetime?: number; multiPv?: number } = {},
+  ): Promise<PikafishSuggestion[]> {
+    await this.warmup();
+    if (!this.worker) throw new Error('Pikafish 尚未就绪。');
+    if (this.pending) throw new Error('Pikafish 正在分析上一局面，请稍候。');
+
+    const fen = boardToPikafishFen(board, turn);
+    const multiPv = Math.max(1, Math.min(5, options.multiPv ?? 3));
+    const movetime = Math.max(350, options.movetime ?? 2400);
+    const cacheKey = `${fen}|mpv=${multiPv}|t=${movetime}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached.map((row) => ({ ...row, pv: [...row.pv] }));
+
+    this.latest.clear();
+
+    const rows = await new Promise<PikafishSuggestion[]>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        this.worker?.postMessage({ type: 'STOP' });
+        this.failPending(new Error('Pikafish 分析超时，请重试。'));
+      }, movetime + 10000);
+
+      this.pending = {
+        resolve,
+        reject,
+        multiPv,
+        timeoutId,
+      };
+
+      this.worker?.postMessage({ type: 'SEARCH', fen, movetime, multiPv });
+    });
+
+    this.cache.set(cacheKey, rows);
+    if (this.cache.size > 24) this.cache.delete(this.cache.keys().next().value as string);
+    return rows.map((row) => ({ ...row, pv: [...row.pv] }));
+  }
+
+  reset() {
+    this.worker?.terminate();
+    this.worker = null;
+    if (this.blobUrl) URL.revokeObjectURL(this.blobUrl);
+    this.blobUrl = null;
+    this.readyPromise = null;
+    this.readyResolve = null;
+    this.readyReject = null;
+    this.latest.clear();
+  }
+}
+
+const pikafishEngine = new PikafishEngine();
+
+export const warmupPikafish = () => pikafishEngine.warmup();
+
+export const analyzeWithPikafish = (
   board: (XiangqiPiece | null)[][],
   turn: XiangqiColor,
   options: { movetime?: number; multiPv?: number } = {},
-): Promise<PikafishSuggestion[]> => {
-  if (typeof Worker === 'undefined' || typeof WebAssembly === 'undefined') {
-    throw new Error('当前浏览器不支持 Pikafish 所需的 Web Worker / WebAssembly。');
-  }
-
-  const sourceResponse = await fetch(ENGINE_JS);
-  if (!sourceResponse.ok) throw new Error(`Pikafish 引擎脚本下载失败：HTTP ${sourceResponse.status}`);
-  const patchedSource = patchEngineSource(await sourceResponse.text());
-  const blobUrl = URL.createObjectURL(new Blob([patchedSource], { type: 'text/javascript' }));
-  const worker = new Worker(blobUrl);
-  const fen = boardToPikafishFen(board, turn);
-  const multiPv = Math.max(1, Math.min(5, options.multiPv ?? 3));
-  const movetime = Math.max(500, options.movetime ?? 3500);
-
-  return await new Promise<PikafishSuggestion[]>((resolve, reject) => {
-    const latest = new Map<number, { scoreCp?: number; mate?: number; depth?: number; pv: string[] }>();
-    let settled = false;
-    const timeout = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      worker.terminate();
-      URL.revokeObjectURL(blobUrl);
-      reject(new Error('Pikafish 分析超时，请重试。'));
-    }, movetime + 20000);
-
-    const cleanup = () => {
-      window.clearTimeout(timeout);
-      worker.terminate();
-      URL.revokeObjectURL(blobUrl);
-    };
-
-    worker.onerror = (event) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error(event.message || 'Pikafish Worker 启动失败。'));
-    };
-
-    worker.onmessage = (event) => {
-      const data = event.data ?? {};
-      if (data.type === 'READY') {
-        worker.postMessage({ type: 'SEARCH', fen, movetime, multiPv });
-        return;
-      }
-
-      if (data.type === 'INFO' && data.info) {
-        const info = data.info as {
-          multipv?: number;
-          score?: number;
-          mate?: number;
-          depth?: number;
-          pv?: string[];
-        };
-        const key = info.multipv ?? 1;
-        if (Array.isArray(info.pv) && info.pv.length) {
-          latest.set(key, {
-            scoreCp: typeof info.score === 'number' ? info.score : undefined,
-            mate: typeof info.mate === 'number' ? info.mate : undefined,
-            depth: info.depth,
-            pv: info.pv,
-          });
-        }
-        return;
-      }
-
-      if (data.type === 'ERROR') {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        reject(new Error(data.message || 'Pikafish 引擎错误。'));
-        return;
-      }
-
-      if (data.type === 'BEST_MOVE') {
-        if (settled) return;
-        settled = true;
-        const rows: PikafishSuggestion[] = [];
-        for (const [multipv, info] of Array.from(latest.entries()).sort(([a], [b]) => a - b)) {
-          const move = info.pv[0] || (multipv === 1 ? data.move : '');
-          const points = uciMoveToPoints(move);
-          if (!move || !points) continue;
-          rows.push({
-            move,
-            scoreCp: info.scoreCp,
-            mate: info.mate,
-            depth: info.depth,
-            pv: info.pv,
-            multipv,
-            ...points,
-          });
-          if (rows.length >= multiPv) break;
-        }
-
-        if (!rows.length && typeof data.move === 'string') {
-          const points = uciMoveToPoints(data.move);
-          if (points) {
-            rows.push({
-              move: data.move,
-              scoreCp: typeof data.info?.score === 'number' ? data.info.score : undefined,
-              mate: typeof data.info?.mate === 'number' ? data.info.mate : undefined,
-              depth: data.info?.depth,
-              pv: [data.move],
-              multipv: 1,
-              ...points,
-            });
-          }
-        }
-
-        cleanup();
-        rows.length ? resolve(rows) : reject(new Error('Pikafish 没有返回可解析的候选着。'));
-      }
-    };
-
-    worker.postMessage({ type: 'INIT' });
-  });
-};
+) => pikafishEngine.analyze(board, turn, options);
