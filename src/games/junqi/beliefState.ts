@@ -1,8 +1,9 @@
 import { applyJunqiHistory, JunqiObservation } from './belief';
 import { JUNQI_INVENTORY, buildPriorBelief } from './sight';
-import { JunqiBelief, JunqiPiece, JunqiPieceType } from './types';
+import { JunqiBelief, JunqiPiece, JunqiPieceType, JunqiPosition } from './types';
 
 export type JunqiObservationMap = Record<string, JunqiObservation[]>;
+export type JunqiOriginMap = Record<string, JunqiPosition>;
 
 const normalizeEntries = (belief: JunqiBelief): JunqiBelief => {
   const total = belief.entries.reduce((sum, entry) => sum + entry.probability, 0);
@@ -29,6 +30,7 @@ export const getKnownBlueInventory = (
 export const buildCoupledBeliefs = (
   board: (JunqiPiece | null)[][],
   observations: JunqiObservationMap = {},
+  origins: JunqiOriginMap = {},
   knownRemoved: Partial<Record<JunqiPieceType, number>> = {}
 ): Record<string, JunqiBelief> => {
   const hidden = board.flatMap((row, rowIndex) =>
@@ -50,8 +52,9 @@ export const buildCoupledBeliefs = (
 
   const beliefs: Record<string, JunqiBelief> = {};
   hidden.forEach(({ piece, row, col }) => {
+    const origin = origins[piece.id] ?? { row, col };
     beliefs[piece.id] = applyJunqiHistory(
-      buildPriorBelief(piece, row, col),
+      buildPriorBelief(piece, origin.row, origin.col),
       observations[piece.id] ?? []
     );
   });
