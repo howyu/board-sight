@@ -76,23 +76,29 @@ Target pipeline:
 
 `history -> belief posterior -> risk map -> legal actions -> features -> Jev/search scorer -> explanation`
 
-## MVP implemented on feat/junqi-sight
+## Implemented on feat/junqi-sight
 
 - 12×5 board surface
-- camps, headquarters and simplified railway topology
-- own revealed pieces + opponent hidden pieces
-- legal-setup prior constraints for flag, mines and bombs
-- hidden-piece probability panel
-- direct sight highlighting
-- enemy probabilistic risk heatmap
-- rule-based explanation panel
-- Jev integration point documented but not yet wired
+- standard road/rail graph, camps, headquarters and three center crossings
+- legal movement including engineer railway turns
+- protected occupied camps and headquarters immobility
+- mine/flag immobility and full rank/bomb/mine combat resolution
+- flag capture and flag exposure after marshal loss
+- deterministic hidden setup with concealed true identities for local play
+- actual red-player move execution and local blue AI replies
+- initial-square-aware setup priors for flag, mines and bombs
+- history observations for movement, engineer-only turns and combat outcomes
+- globally coupled hidden-piece posterior distributions
+- per-piece probabilistic influence overlay without true-identity leakage
+- whole-board probabilistic risk heatmap
+- candidate-action scoring using capture expectation, risk, mobility, advance and information value
+- move history and rule-based natural-language explanation
+- Jev integration point documented but intentionally not a hard dependency
 
-## Next implementation order
+## Remaining research / enhancement work
 
-1. Replace simplified railway topology with a competition-grade graph and add tests.
-2. Add actual move execution and combat observations.
-3. Track remaining inventory globally so beliefs are coupled rather than independent.
-4. Add posterior updates from move history.
-5. Add candidate-action scoring baseline.
-6. Benchmark Jev against the baseline on recorded positions before making it a default dependency.
+1. Calibrate the belief model against real Junqi game records instead of only hard constraints and inventory coupling.
+2. Add a proper automated rule-test harness beyond build/lint CI.
+3. Benchmark Jev, search and DeepNash/RNaD-style policies against the transparent baseline on a fixed position suite.
+4. Add importable training positions and scenario drills.
+5. Reuse the same Junqi core in the HarmonyOS client once the Web/PWA behavior is stable.
