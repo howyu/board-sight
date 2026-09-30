@@ -101,7 +101,7 @@ export const applyJunqiMove = (
   const board = state.board.map((row) => [...row]);
   const defender = board[to.row][to.col];
   let observations = { ...state.observations };
-  let winner = state.winner;
+  let winner: JunqiColor | null = state.winner;
   let outcome: JunqiMoveRecord['outcome'] = 'move';
   let message = '移动完成。';
   let lostMarshalColor: JunqiColor | null = null;
