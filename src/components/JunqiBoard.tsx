@@ -238,7 +238,7 @@ export const JunqiBoard: FC = () => {
           <div className='mx-auto w-fit rounded-2xl border border-stone-700 bg-stone-950/70 p-2 shadow-2xl'>
             <div
               className='grid gap-[3px] rounded-lg bg-[#6b5132] p-1.5'
-              style={{ gridTemplateColumns: `repeat(${JUNQI_COLS}, var(--junqi-cell))`, '--junqi-cell': 'clamp(24px, calc((100dvh - 270px) / 12), 48px)' } as CSSProperties}
+              style={{ gridTemplateColumns: `repeat(${JUNQI_COLS}, calc(var(--junqi-cell) * 1.5))`, '--junqi-cell': 'clamp(24px, calc((100dvh - 270px) / 12), 48px)' } as CSSProperties}
             >
               {Array.from({ length: JUNQI_ROWS }).map((_, row) =>
                 Array.from({ length: JUNQI_COLS }).map((__, col) => {
@@ -261,7 +261,7 @@ export const JunqiBoard: FC = () => {
                     <button
                       key={key}
                       onClick={() => handleSquareClick(row, col)}
-                      className={`relative flex h-[var(--junqi-cell)] w-[var(--junqi-cell)] items-center justify-center rounded-lg border text-sm transition
+                      className={`relative flex h-[var(--junqi-cell)] w-[calc(var(--junqi-cell)*1.5)] items-center justify-center rounded-lg border text-sm transition
                         ${camp ? 'rotate-45 border-amber-500/70 bg-amber-950/45' : 'border-stone-600 bg-[#cbb58b]'}
                         ${hq ? 'ring-2 ring-red-950/50' : ''}
                         ${selectedNow ? 'outline outline-3 outline-amber-300' : ''}
