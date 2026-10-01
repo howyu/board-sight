@@ -413,6 +413,13 @@ export const XiangqiBoard: FC = () => {
               </g>
             </svg>
 
+            {Array.from({ length: 10 }, (_, row) => (
+              <span key={`rank-${row}`} className='pointer-events-none absolute inset-x-0 flex justify-between px-1 text-[11px] font-bold text-[#5d351c]'
+                style={{ top: boardPadding + row * pointSize, transform: 'translateY(-50%)' }}>
+                <span>{isFlipped ? row + 1 : 10 - row}</span><span>{isFlipped ? row + 1 : 10 - row}</span>
+              </span>
+            ))}
+
             {displayBoard.map((row, rowIndex) => row.map((piece, colIndex) => {
               const cell = control[rowIndex][colIndex];
               const key = `${rowIndex}-${colIndex}`;

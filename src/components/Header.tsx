@@ -1,6 +1,6 @@
 import { FC } from 'react';
 
-type GameMode = 'chess' | 'xiangqi';
+type GameMode = 'chess' | 'xiangqi' | 'junqi';
 
 interface HeaderProps {
   gameMode: GameMode;
@@ -35,6 +35,12 @@ const Header: FC<HeaderProps> = ({ gameMode, onGameModeChange }) => (
             className={`rounded-md px-3 py-1.5 text-xs transition-colors sm:text-sm ${gameMode === 'xiangqi' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
           >
             中国象棋
+          </button>
+          <button
+            onClick={() => onGameModeChange('junqi')}
+            className={`rounded-md px-3 py-1.5 text-xs transition-colors sm:text-sm ${gameMode === 'junqi' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+          >
+            中国军旗
           </button>
         </div>
         <a href='https://github.com/howyu/board-sight' target='_blank' rel='noopener noreferrer' className='hidden text-sm text-blue-400 transition-colors hover:text-blue-300 sm:inline'>
