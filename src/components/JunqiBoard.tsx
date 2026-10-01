@@ -260,7 +260,7 @@ export const JunqiBoard: FC = () => {
 
       <div className='grid items-start gap-3 md:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]'>
         <div className='min-w-0'>
-          <div className='relative mx-auto w-fit rounded-2xl border border-stone-700 bg-stone-950/70 px-7 py-5 shadow-2xl' style={{ '--junqi-cell': 'clamp(24px, calc((100dvh - 294px) / 12), 48px)' } as CSSProperties>
+          <div className='relative mx-auto w-fit rounded-2xl border border-stone-700 bg-stone-950/70 px-7 py-5 shadow-2xl' style={{ '--junqi-cell': 'clamp(24px, calc((100dvh - 294px) / 12), 48px)' } as CSSProperties}>
             {Array.from({ length: JUNQI_COLS }, (_, col) => (
               <span key={`col-${col}`} className='pointer-events-none absolute inset-y-0 flex flex-col justify-between py-0.5 text-xs font-semibold text-amber-200'
                 style={{ left: `calc(34px + ${col} * (var(--junqi-cell) * 1.5 + 3px) + var(--junqi-cell) * .75)`, transform: 'translateX(-50%)' }}>

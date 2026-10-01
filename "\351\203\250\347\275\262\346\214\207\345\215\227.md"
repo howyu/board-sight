@@ -1,0 +1,69 @@
+# Chess Attack PWA 部署指南
+
+## 部署包位置
+
+`/workspace/chess-attack-pwa-dist/` — 纯静态文件，上传到任何静态托管即可。
+
+## 方案一：GitHub Pages（推荐，免费）
+
+### 步骤
+
+1. **登录 GitHub**，点右上角 `+` → New repository
+2. 仓库名填 `chess-attack`（或任意），选 Public，点 Create
+3. 把 `chess-attack-pwa-dist` 文件夹里的**所有文件**上传到仓库根目录
+   - 可以用 `git clone` 仓库到本地 → 复制文件进去 → `git add . && git commit -m "init" && git push`
+   - 或者直接在 GitHub 网页端拖拽上传
+4. 进入仓库 Settings → Pages
+5. Source 选 **Deploy from a branch**，分支选 `main`，文件夹选 `/(root)`
+6. 点 Save，等 1-2 分钟
+7. 访问 `https://你的用户名.github.io/chess-attack/` 即可
+
+### 平板添加到桌面
+
+1. 用鸿蒙平板浏览器打开上面的网址
+2. 等页面加载完成（Service Worker 自动注册）
+3. 浏览器菜单 →「添加到桌面」
+4. 桌面出现 Chess Attack 图标，点击全屏运行
+5. 之后断网也能用
+
+---
+
+## 方案二：Gitee Pages（国内访问更快）
+
+1. 注册/登录 [Gitee](https://gitee.com)
+2. 新建仓库 → 上传文件（同 GitHub）
+3. 仓库 → 服务 → Gitee Pages → 部署
+4. 访问 `https://你的用户名.gitee.io/chess-attack/`
+
+---
+
+## 方案三：Vercel（最省事，自动 HTTPS）
+
+1. 注册 [Vercel](https://vercel.com)（可用 GitHub 账号登录）
+2. 点 Add New → Project
+3. 把 `chess-attack-pwa-dist` 文件夹单独作为一个仓库推送到 GitHub
+4. Vercel 导入该仓库 → Deploy
+5. 自动分配 `chess-attack-xxx.vercel.app` 域名
+
+---
+
+## PWA 改造说明
+
+本次改造已完成以下内容：
+
+| 改造项 | 文件 | 说明 |
+|---|---|---|
+| Web App Manifest | `site.webmanifest` | 应用名称、图标、主题色、独立运行模式 |
+| Service Worker | `sw.js` | 离线缓存：核心资源预缓存、静态资源缓存优先、导航请求网络优先+离线兜底 |
+| HTML Meta 标签 | `index.html` | manifest 引用、SW 注册、iOS/鸿蒙 Web App meta、深色主题色 |
+| 相对路径 | `vite.config.ts` + `index.html` | `base: './'`，确保子路径部署不 404 |
+
+## 技术栈
+
+- React 18 + TypeScript + Vite + Tailwind CSS
+- 完整国际象棋规则（王车易位、吃过路兵、兵升变、将军/将杀）
+- 双方势力范围三色覆盖（蓝=白控/红=黑控/紫=争夺）
+
+## License
+
+基于 [razrinn/chess-attack](https://github.com/razrinn/chess-attack)（MIT 协议）二次开发。
