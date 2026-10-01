@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from 'react';
+import { CSSProperties, FC, useEffect, useMemo, useState } from 'react';
 import { generateJunqiCandidates, chooseBlueMove, formatMoveRecord } from '../games/junqi/decision';
 import { applyJunqiMove, createJunqiGameState, getBeliefsForState } from '../games/junqi/game';
 import { createInitialJunqiBoard } from '../games/junqi/initialBoard';
@@ -201,31 +201,31 @@ export const JunqiBoard: FC = () => {
   };
 
   return (
-    <div className='flex flex-col gap-5'>
-      <div className='flex flex-wrap items-start justify-between gap-3'>
+    <div className='flex w-[min(1040px,calc(100vw-48px))] flex-col gap-2'>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
         <div>
-          <h2 className='text-xl font-semibold tracking-[0.08em] text-amber-100'>中国军旗 · 概率棋势</h2>
-          <p className='mt-1 max-w-3xl text-sm leading-6 text-stone-400'>
-            红方可直接走棋，蓝方由本地可解释策略自动应手。暗子真实身份只交给碰子规则使用；风险场和身份面板仅使用可观察历史推断，不读取暗子真值。
+          <h2 className='text-lg font-semibold tracking-[0.08em] text-amber-100'>中国军旗 · 概率棋势</h2>
+          <p className='mt-1 max-w-2xl text-xs leading-4 text-stone-400'>
+            点选红方棋子走棋，蓝方自动应手；点选蓝方暗子查看身份概率。
           </p>
         </div>
         <div className='flex gap-2'>
           <button
             onClick={() => setShowRisk((v) => !v)}
-            className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'
+            className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs text-stone-200 transition hover:bg-stone-700'
           >
             {showRisk ? '隐藏风险场' : '显示风险场'}
           </button>
           <button
             onClick={reset}
-            className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'
+            className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs text-stone-200 transition hover:bg-stone-700'
           >
             重置对局
           </button>
         </div>
       </div>
 
-      <div className='rounded-xl border border-stone-700 bg-stone-900/70 px-4 py-3 text-sm text-stone-300'>
+      <div className='rounded-xl border border-stone-700 bg-stone-900/70 px-3 py-2 text-xs text-stone-300'>
         <span className='font-semibold text-stone-100'>
           {game.winner ? `${game.winner === 'red' ? '红方' : '蓝方'}胜利` : game.turn === 'red' ? '红方回合' : '蓝方回合'}
         </span>
@@ -233,12 +233,12 @@ export const JunqiBoard: FC = () => {
         {message}
       </div>
 
-      <div className='grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]'>
-        <div className='overflow-auto'>
-          <div className='mx-auto w-fit rounded-2xl border border-stone-700 bg-stone-950/70 p-3 shadow-2xl'>
+      <div className='grid items-start gap-3 md:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]'>
+        <div className='min-w-0'>
+          <div className='mx-auto w-fit rounded-2xl border border-stone-700 bg-stone-950/70 p-2 shadow-2xl'>
             <div
-              className='grid gap-1.5 rounded-xl bg-[#6b5132] p-2'
-              style={{ gridTemplateColumns: `repeat(${JUNQI_COLS}, 58px)` }}
+              className='grid gap-[3px] rounded-lg bg-[#6b5132] p-1.5'
+              style={{ gridTemplateColumns: `repeat(${JUNQI_COLS}, var(--junqi-cell))`, '--junqi-cell': 'clamp(24px, calc((100dvh - 270px) / 12), 48px)' } as CSSProperties}
             >
               {Array.from({ length: JUNQI_ROWS }).map((_, row) =>
                 Array.from({ length: JUNQI_COLS }).map((__, col) => {
@@ -261,7 +261,7 @@ export const JunqiBoard: FC = () => {
                     <button
                       key={key}
                       onClick={() => handleSquareClick(row, col)}
-                      className={`relative flex h-[58px] w-[58px] items-center justify-center rounded-lg border text-sm transition
+                      className={`relative flex h-[var(--junqi-cell)] w-[var(--junqi-cell)] items-center justify-center rounded-lg border text-sm transition
                         ${camp ? 'rotate-45 border-amber-500/70 bg-amber-950/45' : 'border-stone-600 bg-[#cbb58b]'}
                         ${hq ? 'ring-2 ring-red-950/50' : ''}
                         ${selectedNow ? 'outline outline-3 outline-amber-300' : ''}
@@ -295,7 +295,7 @@ export const JunqiBoard: FC = () => {
                       )}
                       {piece && (
                         <span
-                          className={`relative z-20 flex h-10 w-10 items-center justify-center rounded-md border px-1 text-xs font-bold shadow
+                          className={`relative z-20 flex h-[74%] w-[82%] items-center justify-center rounded-md border px-0.5 text-[clamp(9px,1.2vh,12px)] font-bold shadow
                             ${camp ? '-rotate-45' : ''}
                             ${piece.color === 'red'
                               ? 'border-red-900 bg-red-100 text-red-900'
@@ -311,21 +311,21 @@ export const JunqiBoard: FC = () => {
               )}
             </div>
           </div>
-          <p className='mt-3 text-center text-xs leading-5 text-stone-500'>
-            红色越深 = 敌方全局概率威胁 · 青色 = 当前棋子的势力范围（暗子按 posterior 加权） · 绿色 = 红方合法目标
+          <p className='mt-2 text-center text-[11px] leading-4 text-stone-500'>
+            红色：敌方威胁 · 青色：所选棋子势力 · 绿色：合法走法
           </p>
         </div>
 
-        <aside className='flex flex-col gap-3'>
-          <section className='rounded-xl border border-stone-700 bg-stone-900/70 p-4'>
+        <aside className='flex flex-col gap-2'>
+          <section className='rounded-xl border border-stone-700 bg-stone-900/70 p-3'>
             <h3 className='font-semibold text-stone-100'>暗子身份推断</h3>
-            {!belief && <p className='mt-2 text-sm text-stone-400'>点一个蓝方暗子查看当前概率分布。</p>}
+            {!belief && <p className='mt-2 text-xs text-stone-400'>点一个蓝方暗子查看当前概率分布。</p>}
             {belief && selectedPiece && (
               <>
-                <p className='mt-2 text-sm text-stone-400'>
+                <p className='mt-2 text-xs text-stone-400'>
                   蓝方暗子 {selectedPiece.id} · {belief.source === 'coupled' ? '全局联动 posterior' : '局部 posterior'}
                 </p>
-                <div className='mt-3 space-y-2'>
+                <div className='mt-2 space-y-1.5'>
                   {belief.entries.slice(0, 7).map((entry) => (
                     <div key={entry.type} className='grid grid-cols-[58px_1fr_42px] items-center gap-2 text-xs'>
                       <span className='text-stone-300'>{labels[entry.type]}</span>
@@ -336,17 +336,17 @@ export const JunqiBoard: FC = () => {
                     </div>
                   ))}
                 </div>
-                <p className='mt-3 text-[11px] leading-5 text-stone-500'>
+                <p className='mt-2 text-[10px] leading-4 text-stone-500'>
                   移动会排除地雷/军旗；铁路拐弯锁定工兵；碰子胜负继续排除不可能军阶；剩余棋子库存对所有暗子做联动校正。
                 </p>
               </>
             )}
           </section>
 
-          <section className='rounded-xl border border-indigo-500/30 bg-indigo-950/25 p-4'>
+          <section className='rounded-xl border border-indigo-500/30 bg-indigo-950/25 p-3'>
             <h3 className='font-semibold text-indigo-100'>AI 局面解读</h3>
-            <p className='mt-2 text-sm leading-6 text-indigo-100/75'>
-              当前最高风险在 {pos(hottest)}。本地评分先即时生成，Jev 再基于可观察棋盘、暗子 posterior 和候选动作做第二层概率排序。
+            <p className='mt-2 text-xs leading-4 text-indigo-100/75'>
+              最高风险：{pos(hottest)}。以下为综合局势与暗子概率的候选走法。
             </p>
             <p className='mt-2 text-[11px] text-indigo-200/60'>
               {jevLoading
@@ -357,7 +357,7 @@ export const JunqiBoard: FC = () => {
                     ? `Jev 暂不可用（${jevError}），已回退本地评分。`
                     : '当前使用本地评分。'}
             </p>
-            <div className='mt-3 space-y-2'>
+            <div className='mt-2 space-y-1.5'>
               {displayedCandidates.map((candidate, index) => { 
                 const originalIndex = candidates.indexOf(candidate);
                 const jevId = candidateJevId(candidate, originalIndex);
@@ -383,11 +383,11 @@ export const JunqiBoard: FC = () => {
             </div>
           </section>
 
-          <section className='rounded-xl border border-stone-700 bg-stone-900/50 p-4'>
+          <section className='rounded-xl border border-stone-700 bg-stone-900/50 p-3'>
             <h3 className='text-sm font-semibold text-stone-200'>最近走棋</h3>
-            <div className='mt-2 max-h-40 space-y-1 overflow-auto text-xs leading-5 text-stone-400'>
+            <div className='mt-2 space-y-1 text-[11px] leading-4 text-stone-400'>
               {game.history.length === 0 && <span>暂无。</span>}
-              {game.history.slice(-8).reverse().map((record) => (
+              {game.history.slice(-3).reverse().map((record) => (
                 <div key={record.ply}>{formatMoveRecord(record, labels)}</div>
               ))}
             </div>
