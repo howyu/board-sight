@@ -260,10 +260,22 @@ export const JunqiBoard: FC = () => {
 
       <div className='grid items-start gap-3 md:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]'>
         <div className='min-w-0'>
-          <div className='mx-auto w-fit rounded-2xl border border-stone-700 bg-stone-950/70 p-2 shadow-2xl'>
+          <div className='relative mx-auto w-fit rounded-2xl border border-stone-700 bg-stone-950/70 px-7 py-5 shadow-2xl' style={{ '--junqi-cell': 'clamp(24px, calc((100dvh - 294px) / 12), 48px)' } as CSSProperties>
+            {Array.from({ length: JUNQI_COLS }, (_, col) => (
+              <span key={`col-${col}`} className='pointer-events-none absolute inset-y-0 flex flex-col justify-between py-0.5 text-xs font-semibold text-amber-200'
+                style={{ left: `calc(34px + ${col} * (var(--junqi-cell) * 1.5 + 3px) + var(--junqi-cell) * .75)`, transform: 'translateX(-50%)' }}>
+                <span>{col + 1}</span><span>{col + 1}</span>
+              </span>
+            ))}
+            {Array.from({ length: JUNQI_ROWS }, (_, row) => (
+              <span key={`row-${row}`} className='pointer-events-none absolute inset-x-0 flex justify-between px-1.5 text-xs font-semibold text-amber-200'
+                style={{ top: `calc(26px + ${row} * (var(--junqi-cell) + 3px) + var(--junqi-cell) * .5)`, transform: 'translateY(-50%)' }}>
+                <span>{row + 1}</span><span>{row + 1}</span>
+              </span>
+            ))}
             <div
               className='grid gap-[3px] rounded-lg bg-[#6b5132] p-1.5'
-              style={{ gridTemplateColumns: `repeat(${JUNQI_COLS}, calc(var(--junqi-cell) * 1.5))`, '--junqi-cell': 'clamp(24px, calc((100dvh - 270px) / 12), 48px)' } as CSSProperties}
+              style={{ gridTemplateColumns: `repeat(${JUNQI_COLS}, calc(var(--junqi-cell) * 1.5))` } as CSSProperties}
             >
               {Array.from({ length: JUNQI_ROWS }).map((_, row) =>
                 Array.from({ length: JUNQI_COLS }).map((__, col) => {
