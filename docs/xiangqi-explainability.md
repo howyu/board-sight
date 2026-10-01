@@ -1,5 +1,8 @@
 # Xiangqi Explainability Roadmap
 
+> **Status: research first, implementation paused.**  
+> This document records the product direction only. Do not start UI or engine integration changes for the explainability layer until a dedicated competitor/adjacent-product review is completed. The review should cover at least Pikafish web products, Xiangqi analysis GUIs, AI coaching products, and explainable-chess products such as DecodeChess, then refine the differentiation claims and implementation scope.
+
 BoardSight should treat Pikafish as the search/evaluation engine and differentiate on explanation.
 
 ## Product goal
