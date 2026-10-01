@@ -262,7 +262,7 @@ export const JunqiBoard: FC = () => {
                       key={key}
                       onClick={() => handleSquareClick(row, col)}
                       className={`relative flex h-[var(--junqi-cell)] w-[calc(var(--junqi-cell)*1.5)] items-center justify-center rounded-lg border text-sm transition
-                        ${camp ? 'rotate-45 border-amber-500/70 bg-amber-950/45' : 'border-stone-600 bg-[#cbb58b]'}
+                        ${camp ? 'rounded-[50%] border-amber-500/70 bg-amber-950/45' : 'border-stone-600 bg-[#cbb58b]'}
                         ${hq ? 'ring-2 ring-red-950/50' : ''}
                         ${selectedNow ? 'outline outline-3 outline-amber-300' : ''}
                         ${legal ? 'ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(110,231,183,.7)]' : ''}
@@ -288,7 +288,7 @@ export const JunqiBoard: FC = () => {
                         <span className='pointer-events-none absolute z-10 h-4 w-4 rounded-full bg-emerald-300/85' />
                       )}
                       {camp && (
-                        <span className='pointer-events-none absolute z-10 -rotate-45 text-[10px] font-semibold text-amber-100/80'>营</span>
+                        <span className='pointer-events-none absolute z-10 text-[10px] font-semibold text-amber-100/80'>营</span>
                       )}
                       {hq && !piece && (
                         <span className='relative z-10 text-[10px] font-bold text-red-950'>大本营</span>
@@ -296,7 +296,7 @@ export const JunqiBoard: FC = () => {
                       {piece && (
                         <span
                           className={`relative z-20 flex h-[74%] w-[82%] items-center justify-center rounded-md border px-0.5 text-[clamp(9px,1.2vh,12px)] font-bold shadow
-                            ${camp ? '-rotate-45' : ''}
+                            
                             ${piece.color === 'red'
                               ? 'border-red-900 bg-red-100 text-red-900'
                               : 'border-slate-800 bg-slate-700 text-white'}
