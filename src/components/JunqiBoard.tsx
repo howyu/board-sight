@@ -1,6 +1,6 @@
 import { CSSProperties, FC, useEffect, useMemo, useState } from 'react';
 import { generateJunqiCandidates, chooseBlueMove, formatMoveRecord } from '../games/junqi/decision';
-import { applyJunqiMove, createJunqiGameState, getBeliefsForState } from '../games/junqi/game';
+import { applyJunqiMove, createJunqiGameState, getBeliefsForState, JunqiGameState } from '../games/junqi/game';
 import { createInitialJunqiBoard } from '../games/junqi/initialBoard';
 import { candidateJevId, JevDecisionResult, scoreJunqiCandidatesWithJev } from '../games/junqi/jev';
 import { getLegalJunqiDestinations } from '../games/junqi/rules';
@@ -35,6 +35,7 @@ const pos = (p: JunqiPosition) => `${p.row + 1}行${p.col + 1}列`;
 
 export const JunqiBoard: FC = () => {
   const [game, setGame] = useState(() => createJunqiGameState(createInitialJunqiBoard()));
+  const [undoStates, setUndoStates] = useState<JunqiGameState[]>([]);
   const [selected, setSelected] = useState<JunqiPosition | null>(null);
   const [showRisk, setShowRisk] = useState(true);
   const [message, setMessage] = useState('红方先行。点选我方棋子，再点绿色目标格走棋。');
@@ -146,6 +147,7 @@ export const JunqiBoard: FC = () => {
 
   const reset = () => {
     setGame(createJunqiGameState(createInitialJunqiBoard()));
+    setUndoStates([]);
     setSelected(null);
     setMessage('红方先行。点选我方棋子，再点绿色目标格走棋。');
   };
@@ -171,6 +173,7 @@ export const JunqiBoard: FC = () => {
       }
     }
 
+    setUndoStates((states) => [...states, game]);
     setGame(next);
     setSelected(null);
     setMessage(summary);
@@ -181,6 +184,8 @@ export const JunqiBoard: FC = () => {
     const target = { row, col };
     const key = positionKey(row, col);
 
+    if (game.winner) { setMessage('对局已结束，请点击新对局重新开始。'); return; }
+
     if (selected && legalDestinations.has(key)) {
       performRedMove(selected, target);
       return;
@@ -188,6 +193,14 @@ export const JunqiBoard: FC = () => {
 
     if (clicked?.color === 'red' && game.turn === 'red' && !game.winner) {
       setSelected(target);
+      const targets = getLegalJunqiDestinations(game.board, row, col);
+      setMessage(clicked.type === 'mine' || clicked.type === 'flag'
+        ? `${labels[clicked.type]}不能移动，请选择其他棋子。`
+        : isHeadquarters(row, col)
+          ? '进入大本营的棋子不能再移动。'
+          : targets.length
+            ? `已选${labels[clicked.type]}：点击绿色目标走棋，共 ${targets.length} 个合法目标。`
+            : '该棋子暂时没有合法目标，请选择其他棋子。');
       return;
     }
 
@@ -197,6 +210,8 @@ export const JunqiBoard: FC = () => {
       return;
     }
 
+    if (selected) setMessage('这个目标不能走：请点击绿色目标，或选择另一枚红方棋子。');
+    else setMessage('请先点击一枚红方可移动棋子。');
     setSelected(null);
   };
 
@@ -206,10 +221,20 @@ export const JunqiBoard: FC = () => {
         <div>
           <h2 className='text-lg font-semibold tracking-[0.08em] text-amber-100'>中国军旗 · 概率棋势</h2>
           <p className='mt-1 max-w-2xl text-xs leading-4 text-stone-400'>
-            点选红方棋子走棋，蓝方自动应手；点选蓝方暗子查看身份概率。
+            玩法：先点红方棋子，再点绿色目标；蓝方自动应手。地雷和军旗不能移动。
           </p>
         </div>
-        <div className='flex gap-2'>
+        <div className='flex flex-wrap gap-2'>
+          <button disabled={!undoStates.length} onClick={() => {
+            const previous = undoStates[undoStates.length - 1];
+            if (!previous) return;
+            setGame(previous); setUndoStates((states) => states.slice(0, -1));
+            setSelected(null); setMessage('已撤回上一轮红蓝双方走棋，红方重新走棋。');
+          }} className='rounded-lg border border-stone-600 px-3 py-1.5 text-xs text-stone-200 disabled:opacity-40'>悔棋</button>
+          <button disabled={!!game.winner} onClick={() => {
+            setUndoStates((states) => [...states, game]);
+            setGame({ ...game, winner: 'blue' }); setSelected(null); setMessage('红方认输，蓝方胜利。');
+          }} className='rounded-lg border border-stone-600 px-3 py-1.5 text-xs text-stone-200 disabled:opacity-40'>认输</button>
           <button
             onClick={() => setShowRisk((v) => !v)}
             className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs text-stone-200 transition hover:bg-stone-700'
@@ -220,7 +245,7 @@ export const JunqiBoard: FC = () => {
             onClick={reset}
             className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs text-stone-200 transition hover:bg-stone-700'
           >
-            重置对局
+            新对局
           </button>
         </div>
       </div>
@@ -267,6 +292,7 @@ export const JunqiBoard: FC = () => {
                         ${selectedNow ? 'outline outline-3 outline-amber-300' : ''}
                         ${legal ? 'ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(110,231,183,.7)]' : ''}
                       `}
+                      aria-label={`${row + 1}行${col + 1}列 ${visibleLabel ?? (camp ? '行营' : hq ? '大本营' : '空位')}${legal ? ' 可走' : ''}`}
                       title={`(${row + 1}, ${col + 1})`}
                     >
                       {showRisk && risk[row][col] > 0 && (
@@ -357,6 +383,12 @@ export const JunqiBoard: FC = () => {
                     ? `Jev 暂不可用（${jevError}），已回退本地评分。`
                     : '当前使用本地评分。'}
             </p>
+            {displayedCandidates[0] && !game.winner && (
+              <button onClick={() => performRedMove(displayedCandidates[0].from, displayedCandidates[0].to)}
+                className='mt-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500'>
+                执行首选走法
+              </button>
+            )}
             <div className='mt-2 space-y-1.5'>
               {displayedCandidates.map((candidate, index) => { 
                 const originalIndex = candidates.indexOf(candidate);
