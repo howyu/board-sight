@@ -8,7 +8,8 @@ import { calculateJunqiRiskMap, getJunqiControlledSquares } from '../games/junqi
 import {
   isCamp,
   isHeadquarters,
-  isRailway,
+  roadEdges,
+  railwayLines,
   JUNQI_COLS,
   JUNQI_ROWS,
   positionKey,
@@ -263,20 +264,33 @@ export const JunqiBoard: FC = () => {
           <div className='relative mx-auto w-fit rounded-2xl border border-stone-700 bg-stone-950/70 px-7 py-5 shadow-2xl' style={{ '--junqi-cell': 'clamp(24px, calc((100dvh - 294px) / 12), 48px)' } as CSSProperties}>
             {Array.from({ length: JUNQI_COLS }, (_, col) => (
               <span key={`col-${col}`} className='pointer-events-none absolute inset-y-0 flex flex-col justify-between py-0.5 text-xs font-semibold text-amber-200'
-                style={{ left: `calc(34px + ${col} * (var(--junqi-cell) * 1.5 + 3px) + var(--junqi-cell) * .75)`, transform: 'translateX(-50%)' }}>
+                style={{ left: `calc(34px + ${col} * (var(--junqi-cell) * 1.5) + var(--junqi-cell) * .75)`, transform: 'translateX(-50%)' }}>
                 <span>{col + 1}</span><span>{col + 1}</span>
               </span>
             ))}
             {Array.from({ length: JUNQI_ROWS }, (_, row) => (
               <span key={`row-${row}`} className='pointer-events-none absolute inset-x-0 flex justify-between px-1.5 text-xs font-semibold text-amber-200'
-                style={{ top: `calc(26px + ${row} * (var(--junqi-cell) + 3px) + var(--junqi-cell) * .5)`, transform: 'translateY(-50%)' }}>
+                style={{ top: `calc(26px + ${row} * var(--junqi-cell) + var(--junqi-cell) * .5)`, transform: 'translateY(-50%)' }}>
                 <span>{row + 1}</span><span>{row + 1}</span>
               </span>
             ))}
             <div
-              className='grid gap-[3px] rounded-lg bg-[#6b5132] p-1.5'
+              className='relative grid rounded-lg bg-[#6b5132] p-1.5'
               style={{ gridTemplateColumns: `repeat(${JUNQI_COLS}, calc(var(--junqi-cell) * 1.5))` } as CSSProperties}
             >
+              <svg aria-label='军棋公路与铁路' className='pointer-events-none absolute' style={{ inset: 6, width: 'calc(100% - 12px)', height: 'calc(100% - 12px)' }} viewBox='0 0 500 1200' preserveAspectRatio='none'>
+                <g stroke='#e7d8b9' strokeWidth='3'>
+                  {roadEdges.map(([a, b]) => <line key={`${positionKey(a.row, a.col)}:${positionKey(b.row, b.col)}`} x1={a.col * 100 + 50} y1={a.row * 100 + 50} x2={b.col * 100 + 50} y2={b.row * 100 + 50} />)}
+                </g>
+                {railwayLines.map((line, index) => {
+                  const points = line.map(key => { const [row, col] = key.split('-').map(Number); return `${col * 100 + 50},${row * 100 + 50}`; }).join(' ');
+                  return <g key={index} fill='none'>
+                    <polyline points={points} stroke='#163b2d' strokeWidth='14' />
+                    <polyline points={points} stroke='#b3c9a1' strokeWidth='8' strokeDasharray='3 9' />
+                    <polyline points={points} stroke='#163b2d' strokeWidth='4' />
+                  </g>;
+                })}
+              </svg>
               {Array.from({ length: JUNQI_ROWS }).map((_, row) =>
                 Array.from({ length: JUNQI_COLS }).map((__, col) => {
                   const piece = game.board[row][col];
@@ -286,7 +300,7 @@ export const JunqiBoard: FC = () => {
                   const influence = selectedInfluence.get(key) ?? 0;
                   const camp = isCamp(row, col);
                   const hq = isHeadquarters(row, col);
-                  const rail = isRailway(row, col);
+
                   const intensity = Math.min(0.82, risk[row][col] / maxRisk * 0.82);
                   const visibleLabel = piece
                     ? piece.color === 'red' || piece.revealed
@@ -298,8 +312,8 @@ export const JunqiBoard: FC = () => {
                     <button
                       key={key}
                       onClick={() => handleSquareClick(row, col)}
-                      className={`relative flex h-[var(--junqi-cell)] w-[calc(var(--junqi-cell)*1.5)] items-center justify-center rounded-lg border text-sm transition
-                        ${camp ? 'rounded-[50%] border-amber-500/70 bg-amber-950/45' : 'border-stone-600 bg-[#cbb58b]'}
+                      style={{ height: 'var(--junqi-cell)' }}
+                      className={`relative flex w-[calc(var(--junqi-cell)*1.5)] items-center justify-center text-sm transition
                         ${hq ? 'ring-2 ring-red-950/50' : ''}
                         ${selectedNow ? 'outline outline-3 outline-amber-300' : ''}
                         ${legal ? 'ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(110,231,183,.7)]' : ''}
@@ -307,14 +321,12 @@ export const JunqiBoard: FC = () => {
                       aria-label={`${row + 1}行${col + 1}列 ${visibleLabel ?? (camp ? '行营' : hq ? '大本营' : '空位')}${legal ? ' 可走' : ''}`}
                       title={`(${row + 1}, ${col + 1})`}
                     >
+                      <span className={`pointer-events-none absolute h-[72%] w-[80%] border-2 ${camp ? 'rounded-[50%] border-amber-400 bg-[#72542d]' : hq ? 'rounded-t-[45%] border-red-950 bg-[#cbb58b]' : 'rounded-md border-stone-800 bg-[#cbb58b]'}`} />
                       {showRisk && risk[row][col] > 0 && (
                         <span
                           className='pointer-events-none absolute inset-0 rounded-lg bg-red-600'
                           style={{ opacity: intensity }}
                         />
-                      )}
-                      {rail && !camp && (
-                        <span className='pointer-events-none absolute inset-x-1 top-1/2 h-1 -translate-y-1/2 bg-stone-700/45' />
                       )}
                       {influence > 0 && (
                         <span

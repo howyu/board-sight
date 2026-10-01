@@ -102,3 +102,12 @@ Target pipeline:
 3. Benchmark Jev, search and DeepNash/RNaD-style policies against the transparent baseline on a fixed position suite.
 4. Add importable training positions and scenario drills.
 5. Reuse the same Junqi core in the HarmonyOS client once the Web/PWA behavior is stable.
+
+## 双人棋盘地形复核（2026-10-01）
+
+参考 samuelyuan/online-junqi 的 `src/lib/BoardConstants.ts` 和 `Graph.ts`，复核版本 f5ba2e8cedaa7e1dc3975349d5bbe097f2d5e13a（MIT）；仅参考地形与连线，自行实现 SVG 绘制。
+https://github.com/samuelyuan/online-junqi/blob/master/src/lib/BoardConstants.ts
+
+本站坐标从上到下、从左到右均从 1 开始。行营为 (3,2)、(3,4)、(4,3)、(5,2)、(5,4)，及旋转对称的 (8,2)、(8,4)、(9,3)、(10,2)、(10,4)。大本营保持 (1,2)、(1,4)、(12,2)、(12,4)。铁路为第 2、6、7、11 行的横线及第 1、5 列在第 2–11 行的纵线。中央仅第 1、3、5 列有连接，其中中央桥沿用参考实现的公路连接。行营不在铁路上，其斜向公路按移动图绘制。
+
+回归检查：`node tests/junqi-terrain.test.mjs`；覆盖行营坐标、铁路互斥、50 子合法初始布阵、中央桥限制、普通棋子直行、工兵转弯和阻挡。

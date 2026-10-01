@@ -6,8 +6,8 @@ export const JUNQI_COLS = 5;
 export const positionKey = (row: number, col: number) => `${row}-${col}`;
 
 export const campKeys = new Set([
-  '1-1', '1-3', '2-2', '3-1', '3-3',
-  '8-1', '8-3', '9-2', '10-1', '10-3',
+  '2-1', '2-3', '3-2', '4-1', '4-3',
+  '7-1', '7-3', '8-2', '9-1', '9-3',
 ]);
 
 export const headquartersKeys = new Set([
@@ -88,3 +88,14 @@ export const railNeighbors = ({ row, col }: JunqiPosition): JunqiPosition[] => {
 
   return [...neighbors.values()];
 };
+
+// Render the same undirected graph used by movement; no decorative fake links.
+export const roadEdges: [JunqiPosition, JunqiPosition][] = [];
+for (let row = 0; row < JUNQI_ROWS; row += 1) {
+  for (let col = 0; col < JUNQI_COLS; col += 1) {
+    const from = { row, col };
+    for (const to of roadNeighbors(from)) {
+      if (row * JUNQI_COLS + col < to.row * JUNQI_COLS + to.col) roadEdges.push([from, to]);
+    }
+  }
+}
