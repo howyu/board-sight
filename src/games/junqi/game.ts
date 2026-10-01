@@ -182,6 +182,15 @@ export const applyJunqiMove = (
   }
 
   const nextTurn: JunqiColor = state.turn === 'red' ? 'blue' : 'red';
+  if (!winner) {
+    const hasMove = board.some((row, r) => row.some((p, col) =>
+      p?.color === nextTurn && getLegalJunqiDestinations(board, r, col).length > 0
+    ));
+    if (!hasMove) {
+      winner = piece.color;
+      message += ` ${nextTurn === 'red' ? '红方' : '蓝方'}无合法走法，${piece.color === 'red' ? '红方' : '蓝方'}胜利。`;
+    }
+  }
   const record: JunqiMoveRecord = {
     ply: state.history.length + 1,
     color: piece.color,
