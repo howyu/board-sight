@@ -362,8 +362,8 @@ export const XiangqiBoard: FC = () => {
     return Object.entries(counts).map(([name, count]) => `${name}×${count}`).join('、') || '无';
   };
 
-  const pointSize = 64;
-  const boardPadding = 38;
+  const pointSize = 58;
+  const boardPadding = 34;
   const boardWidth = pointSize * 8;
   const boardHeight = pointSize * 9;
 
@@ -445,22 +445,22 @@ export const XiangqiBoard: FC = () => {
                   title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]}` : undefined}
                 >
                   {(wasLastFrom || wasLastTo) && <span className={`pointer-events-none absolute h-10 w-10 rounded-full border-2 ${wasLastTo ? 'border-amber-700/80' : 'border-amber-700/45 border-dashed'}`} />}
-                  {isAnalysisFrom && <span className='pointer-events-none absolute h-[50px] w-[50px] rounded-full border-2 border-sky-700/70 border-dashed' />}
+                  {isAnalysisFrom && <span className='pointer-events-none absolute h-[48px] w-[48px] rounded-full border-2 border-sky-700/70 border-dashed' />}
                   {isAnalysisTo && <span className='pointer-events-none absolute h-[30px] w-[30px] rounded-full border-2 border-sky-600/90 bg-sky-200/15' />}
                   {isCheckPath && <span className='pointer-events-none absolute h-7 w-7 rounded-full bg-orange-500/18 ring-1 ring-orange-700/40' />}
-                  {isCheckingAttacker && <span className='pointer-events-none absolute h-[52px] w-[52px] rounded-full border-[3px] border-orange-600/90 shadow-[0_0_10px_rgba(234,88,12,.45)]' />}
-                  {isCheckedGeneral && <span className='pointer-events-none absolute h-[54px] w-[54px] rounded-full border-[3px] border-red-700/95 shadow-[0_0_12px_rgba(185,28,28,.55)]' />}
+                  {isCheckingAttacker && <span className='pointer-events-none absolute h-[50px] w-[50px] rounded-full border-[3px] border-orange-600/90 shadow-[0_0_10px_rgba(234,88,12,.45)]' />}
+                  {isCheckedGeneral && <span className='pointer-events-none absolute h-[52px] w-[52px] rounded-full border-[3px] border-red-700/95 shadow-[0_0_12px_rgba(185,28,28,.55)]' />}
                   {showControl && (red > 0 || black > 0) && !piece && (
                     <span className={`absolute h-3.5 w-3.5 rounded-full border-2 ${contested ? 'border-violet-700 bg-violet-200/75' : red > 0 ? 'border-[#a42b24] bg-red-100/75' : 'border-stone-800 bg-stone-200/80'}`}>
                       {(red + black) > 1 && <span className='absolute -right-2 -top-2 rounded-full bg-[#f2d9ad] px-1 text-[8px] font-bold leading-3 text-stone-800 shadow'>{red + black}</span>}
                     </span>
                   )}
                   {reviewIndex === null && legalMove && !piece && <span className='absolute z-20 h-3 w-3 rounded-full bg-emerald-700 shadow-[0_0_0_3px_rgba(240,211,155,.8)]' />}
-                  {captureTarget && <span className='absolute z-20 h-[42px] w-[42px] rounded-full border-[3px] border-red-700/90 shadow-[0_0_9px_rgba(153,27,27,.45)]' />}
+                  {captureTarget && <span className='absolute z-20 h-[40px] w-[40px] rounded-full border-[3px] border-red-700/90 shadow-[0_0_9px_rgba(153,27,27,.45)]' />}
                   {selectedControl && !legalMove && !piece && <span className='absolute h-5 w-5 rounded-full border-2 border-amber-500 bg-amber-200/25 shadow-[0_0_9px_rgba(245,158,11,.65)]' />}
                   {piece && (
                     <>
-                      {selectedControl && <span className='absolute h-[42px] w-[42px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
+                      {selectedControl && <span className='absolute h-[40px] w-[40px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
                       <span className={`relative z-10 flex h-11 w-11 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-[19px] font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
                         {showControl && attackCount > 0 && (
                           <span className='pointer-events-none absolute left-1.5 top-1/2 z-20 -translate-y-1/2' title={`被对方攻击 ${attackCount} 次`}>
