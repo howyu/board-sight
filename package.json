@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:chess-parity": "node scripts/check-chess-parity.mjs",
+    "check:harmony-resources": "node scripts/check-harmony-resources.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

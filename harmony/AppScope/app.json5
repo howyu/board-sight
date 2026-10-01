@@ -1,0 +1,10 @@
+{
+  "app": {
+    "bundleName": "com.howyu.boardsight",
+    "vendor": "howyu",
+    "versionCode": 1000000,
+    "versionName": "0.1.0",
+    "label": "$string:app_name",
+    "icon": "$media:app_icon"
+  }
+}

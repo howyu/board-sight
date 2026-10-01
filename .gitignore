@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# HarmonyOS local toolchain state and build outputs
+harmony/**/.hvigor/
+harmony/**/build/
+harmony/**/oh_modules/
+harmony/local.properties
+harmony/.deveco/

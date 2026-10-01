@@ -9,6 +9,7 @@ BoardSight is an offline-first board-control visualizer. It turns invisible atta
 - **International Chess** — playable board, legal moves, move history, PGN, square-control overlay and analysis tools.
 - **Chinese Chess / Xiangqi** — 9×10 initial position, whole-board red/black control map, per-intersection control counts, and click-a-piece control-range highlighting.
 - **Offline-first PWA** — designed for phones, tablets and desktop browsers, including travel/offline learning scenarios.
+- **HarmonyOS native (MVP)** — ArkTS + ArkUI client under `harmony/`, currently validating international-chess board rendering and control-map parity.
 
 ## Architecture
 
@@ -21,15 +22,25 @@ src/
 │   └── xiangqi/
 ├── components/
 └── hooks/
+
+harmony/
+├── AppScope/
+└── entry/src/main/
+    ├── ets/
+    └── resources/
 ```
 
 The core distinction is intentional: **control/attack squares are not always the same as legal moves**. BoardSight visualizes influence first; each game can separately implement move legality.
+
+The Web/PWA remains the main cross-platform client. HarmonyOS is developed natively in the same repository rather than as a separate product or WebView wrapper. See [docs/harmonyos.md](./docs/harmonyos.md).
 
 ## Xiangqi rules currently modeled
 
 The Xiangqi control adapter includes chariot rays and blockers, horse-leg blocking, cannon screens/captures, elephant-eye blocking and river restriction, advisor/general palace restriction, flying generals, and soldier river-crossing behavior.
 
 ## Development
+
+Web/PWA:
 
 ```bash
 npm install
@@ -39,6 +50,10 @@ npm run lint
 ```
 
 React 18 + TypeScript + Vite + Tailwind CSS.
+
+HarmonyOS:
+
+Open the `harmony/` directory in DevEco Studio. The native client uses ArkTS + ArkUI and the Stage model. DevEco Studio should resolve the local HarmonyOS SDK and signing configuration.
 
 ## Open-source attribution
 
@@ -54,9 +69,10 @@ The original project was developed with AI-assisted tooling including Claude Son
 
 1. Stabilize the shared control-map engine and regression-check international chess.
 2. Complete Xiangqi visualization and board interaction.
-3. Add training positions and explain-why-this-square-is-controlled interactions.
-4. Keep the PWA as the cross-platform offline client.
-5. Reuse the TypeScript core in a future HarmonyOS ArkTS/ArkUI native client.
+3. Add cross-platform control-map fixtures and shared training-position data.
+4. Extend HarmonyOS native interaction from visualization to legal moves and training.
+5. Add “why is this square controlled?” explanations on both platforms.
+6. Add optional engine analysis only after the core interaction loop is stable.
 
 ## License
 
