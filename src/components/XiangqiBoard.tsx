@@ -1,10 +1,12 @@
-import { FC, useMemo, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { calculateControlMap } from '../core/controlMap';
 import { xiangqiControlAdapter } from '../games/xiangqi/controlAdapter';
 import { createInitialXiangqiBoard } from '../games/xiangqi/initialBoard';
 import { applyXiangqiMove, getCheckThreats, getIllegalMoveReason, getLegalMovesForPiece, hasAnyLegalMove, isGeneralInCheck } from '../games/xiangqi/legalRules';
 import { formatXiangqiMove } from '../games/xiangqi/notation';
 import { XiangqiColor, XiangqiPiece, XiangqiPieceType } from '../games/xiangqi/types';
+import { getOpeningBookSuggestions } from '../games/xiangqi/openingBook';
+import { analyzeWithPikafish, warmupPikafish } from '../engine/pikafishClient';
 
 const labels: Record<XiangqiPieceType, { red: string; black: string }> = {
   general: { red: '帅', black: '将' },
@@ -16,17 +18,29 @@ const labels: Record<XiangqiPieceType, { red: string; black: string }> = {
   soldier: { red: '兵', black: '卒' },
 };
 
-const AttackIcon: FC = () => (
-  <svg viewBox='0 0 18 18' className='h-3 w-3' aria-hidden='true'>
+const AttackIcon: FC<{ compact?: boolean }> = ({ compact = false }) => (
+  <svg viewBox='0 0 18 18' className={compact ? 'h-2 w-2' : 'h-2.5 w-2.5'} aria-hidden='true'>
     <path d='M3 2.5 13.5 13M5.2 2.4 3 2.5l.1 2.2M12.8 12.3l2.5 2.5M15 13.2l-1.8 1.8M15 2.5 4.5 13M12.8 2.4l2.2.1-.1 2.2M5.2 12.3l-2.5 2.5M3 13.2 4.8 15' fill='none' stroke='currentColor' strokeWidth='1.55' strokeLinecap='round' strokeLinejoin='round' />
   </svg>
 );
 
 const DefenseIcon: FC<{ compact?: boolean }> = ({ compact = false }) => (
-  <svg viewBox='0 0 16 16' className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} aria-hidden='true'>
+  <svg viewBox='0 0 16 16' className={compact ? 'h-2 w-2' : 'h-2.5 w-2.5'} aria-hidden='true'>
     <path d='M8 1.8 13 3.6v3.7c0 3.1-1.9 5.4-5 6.9-3.1-1.5-5-3.8-5-6.9V3.6L8 1.8Z' fill='none' stroke='currentColor' strokeWidth='1.6' strokeLinejoin='round' />
   </svg>
 );
+
+interface MoveSuggestion {
+  notation: string;
+  score: number;
+  tags: string[];
+  replyNotation?: string;
+  depth?: number;
+  pv?: string[];
+  source: 'book' | 'pikafish';
+  from: { row: number; col: number };
+  to: { row: number; col: number };
+}
 
 const CountMarks: FC<{ count: number; kind: 'attack' | 'defense' }> = ({ count, kind }) => {
   if (count <= 0) return null;
@@ -34,14 +48,14 @@ const CountMarks: FC<{ count: number; kind: 'attack' | 'defense' }> = ({ count, 
   const tone = kind === 'attack' ? 'text-[#a5231c]' : 'text-[#45513d]';
   if (count <= 3) {
     return (
-      <span className={`flex flex-col items-center -space-y-1.5 ${tone}`} aria-label={`${kind === 'attack' ? '被攻击' : '被保护'} ${count} 次`}>
+      <span className={`flex flex-col items-center -space-y-1 ${tone}`} aria-label={`${kind === 'attack' ? '被攻击' : '被保护'} ${count} 次`}>
         {Array.from({ length: count }).map((_, index) => <Icon key={index} compact />)}
       </span>
     );
   }
   return (
     <span className={`flex flex-col items-center gap-0 ${tone}`} aria-label={`${kind === 'attack' ? '被攻击' : '被保护'} ${count} 次`}>
-      <Icon /><span className='text-[8px] font-bold leading-none'>{count}</span>
+      <Icon /><span className='text-[7px] font-bold leading-none'>{count}</span>
     </span>
   );
 };
@@ -59,12 +73,19 @@ export const XiangqiBoard: FC = () => {
   const [board, setBoard] = useState<(XiangqiPiece | null)[][]>(() => createInitialXiangqiBoard());
   const [editMode, setEditMode] = useState(false);
   const [showControl, setShowControl] = useState(true);
+  const [isFlipped, setIsFlipped] = useState(false);
   const [selected, setSelected] = useState<{ row: number; col: number } | null>(null);
   const [inspected, setInspected] = useState<{ row: number; col: number } | null>(null);
   const [turn, setTurn] = useState<XiangqiColor>('red');
   const [winner, setWinner] = useState<XiangqiColor | null>(null);
   const [lastMove, setLastMove] = useState<{ from: { row: number; col: number }; to: { row: number; col: number } } | null>(null);
   const [moveMessage, setMoveMessage] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<MoveSuggestion[]>([]);
+  const [analysisBusy, setAnalysisBusy] = useState(false);
+  const [analysisPreview, setAnalysisPreview] = useState<number | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [engineWarm, setEngineWarm] = useState(false);
+  const [engineWarmError, setEngineWarmError] = useState(false);
   const [moveRecords, setMoveRecords] = useState<XiangqiMoveRecord[]>([]);
   const [reviewIndex, setReviewIndex] = useState<number | null>(null);
   const [history, setHistory] = useState<Array<{
@@ -104,6 +125,20 @@ export const XiangqiBoard: FC = () => {
   const checkingAttackers = useMemo(() => new Set(checkThreats.map((threat) => `${threat.attacker.row}-${threat.attacker.col}`)), [checkThreats]);
   const checkingTargets = useMemo(() => new Set(checkThreats.map((threat) => `${threat.target.row}-${threat.target.col}`)), [checkThreats]);
   const checkingPath = useMemo(() => new Set(checkThreats.flatMap((threat) => threat.path.map((point) => `${point.row}-${point.col}`))), [checkThreats]);
+
+  useEffect(() => {
+    let active = true;
+    warmupPikafish()
+      .then(() => {
+        if (active) setEngineWarm(true);
+      })
+      .catch(() => {
+        if (active) setEngineWarmError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handlePointClick = (row: number, col: number) => {
     setInspected({ row, col });
@@ -174,6 +209,85 @@ export const XiangqiBoard: FC = () => {
     setSelected(piece && piece.color === turn ? { row, col } : null);
   };
 
+  const analyzeCurrentPosition = async () => {
+    if (winner || editMode || reviewIndex !== null) return;
+    setAnalysisBusy(true);
+    setAnalysisPreview(null);
+    setAnalysisError(null);
+    setSuggestions([]);
+
+    const bookSuggestions = getOpeningBookSuggestions(
+      board,
+      turn,
+      moveRecords.map((move) => move.notation),
+    );
+    if (bookSuggestions.length > 0) {
+      setSuggestions(bookSuggestions.map((suggestion) => ({
+        notation: suggestion.notation,
+        score: 0,
+        tags: ['开局库', suggestion.label],
+        source: 'book' as const,
+        from: suggestion.from,
+        to: suggestion.to,
+      })));
+      setAnalysisBusy(false);
+      return;
+    }
+
+    try {
+      const engineSuggestions = await analyzeWithPikafish(board, turn, { movetime: 2400, multiPv: 3 });
+      const mapped: MoveSuggestion[] = engineSuggestions.map((suggestion) => {
+        const piece = board[suggestion.from.row]?.[suggestion.from.col];
+        if (!piece) {
+          return {
+            notation: suggestion.move,
+            score: suggestion.scoreCp ?? 0,
+            tags: ['Pikafish'],
+            source: 'pikafish' as const,
+            depth: suggestion.depth,
+            pv: suggestion.pv,
+            from: suggestion.from,
+            to: suggestion.to,
+          };
+        }
+
+        const firstMoveBoard = applyXiangqiMove(board, suggestion.from, suggestion.to);
+        let replyNotation: string | undefined;
+        const reply = suggestion.pv[1];
+        if (reply && /^[a-i][0-9][a-i][0-9]$/.test(reply)) {
+          const file = (sq: string) => sq.charCodeAt(0) - 97;
+          const row = (sq: string) => 9 - Number(sq[1]);
+          const replyFrom = { row: row(reply.slice(0, 2)), col: file(reply.slice(0, 2)) };
+          const replyTo = { row: row(reply.slice(2, 4)), col: file(reply.slice(2, 4)) };
+          const replyPiece = firstMoveBoard[replyFrom.row]?.[replyFrom.col];
+          if (replyPiece) replyNotation = formatXiangqiMove(replyPiece, replyFrom, replyTo);
+        }
+
+        const tags: string[] = ['Pikafish'];
+        if (board[suggestion.to.row][suggestion.to.col]) tags.push('吃子');
+
+        return {
+          notation: formatXiangqiMove(piece, suggestion.from, suggestion.to),
+          score: suggestion.mate
+            ? (suggestion.mate > 0 ? 1_000_000 - suggestion.mate : -1_000_000 - suggestion.mate)
+            : suggestion.scoreCp ?? 0,
+          tags: tags.slice(0, 2),
+          source: 'pikafish' as const,
+          replyNotation,
+          depth: suggestion.depth,
+          pv: suggestion.pv,
+          from: suggestion.from,
+          to: suggestion.to,
+        };
+      });
+
+      setSuggestions(mapped);
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Pikafish 分析失败。');
+    } finally {
+      setAnalysisBusy(false);
+    }
+  };
   const undo = () => {
     const previous = history[history.length - 1];
     if (!previous) return;
@@ -187,6 +301,9 @@ export const XiangqiBoard: FC = () => {
     setInspected(null);
     setMoveMessage(null);
     setWinner(null);
+    setSuggestions([]);
+    setAnalysisPreview(null);
+    setAnalysisError(null);
   };
 
   const reset = () => {
@@ -200,6 +317,9 @@ export const XiangqiBoard: FC = () => {
     setHistory([]);
     setMoveRecords([]);
     setReviewIndex(null);
+    setSuggestions([]);
+    setAnalysisPreview(null);
+    setAnalysisError(null);
   };
 
   const inspectedControl = inspected ? control[inspected.row][inspected.col] : null;
@@ -242,8 +362,8 @@ export const XiangqiBoard: FC = () => {
     return Object.entries(counts).map(([name, count]) => `${name}×${count}`).join('、') || '无';
   };
 
-  const pointSize = 64;
-  const boardPadding = 38;
+  const pointSize = 58;
+  const boardPadding = 34;
   const boardWidth = pointSize * 8;
   const boardHeight = pointSize * 9;
 
@@ -266,7 +386,7 @@ export const XiangqiBoard: FC = () => {
           >
             <div className='pointer-events-none absolute inset-0 opacity-[0.13]' style={{ backgroundImage: 'repeating-linear-gradient(7deg, transparent 0, transparent 13px, rgba(90,54,25,.25) 14px, transparent 15px)' }} />
 
-            <svg className='pointer-events-none absolute' style={{ left: boardPadding, top: boardPadding }} width={boardWidth} height={boardHeight} viewBox={`0 0 ${boardWidth} ${boardHeight}`}>
+            <svg className='pointer-events-none absolute overflow-visible' style={{ left: boardPadding, top: boardPadding }} width={boardWidth} height={boardHeight} viewBox={`0 0 ${boardWidth} ${boardHeight}`}>
               <g stroke='#5d351c' strokeWidth='1.35' fill='none'>
                 {Array.from({ length: 10 }).map((_, r) => <line key={`h-${r}`} x1='0' y1={r * pointSize} x2={boardWidth} y2={r * pointSize} />)}
                 {Array.from({ length: 9 }).map((_, col) => (
@@ -280,8 +400,16 @@ export const XiangqiBoard: FC = () => {
                 <line x1={5 * pointSize} y1={7 * pointSize} x2={3 * pointSize} y2={9 * pointSize} />
               </g>
               <g fill='#68401f' fontFamily='serif' fontSize='21' fontWeight='600' letterSpacing='5'>
-                <text x={boardWidth * 0.24} y={4.72 * pointSize} textAnchor='middle'>楚河</text>
-                <text x={boardWidth * 0.76} y={4.72 * pointSize} textAnchor='middle'>汉界</text>
+                <text x={boardWidth * 0.24} y={4.72 * pointSize} textAnchor='middle'>{isFlipped ? '汉界' : '楚河'}</text>
+                <text x={boardWidth * 0.76} y={4.72 * pointSize} textAnchor='middle'>{isFlipped ? '楚河' : '汉界'}</text>
+              </g>
+              <g fill='#6f4526' fontFamily='serif' fontSize='12' fontWeight='700'>
+                {(isFlipped ? ['一','二','三','四','五','六','七','八','九'] : ['1','2','3','4','5','6','7','8','9']).map((label, col) => (
+                  <text key={`top-file-${label}`} x={col * pointSize} y='-13' textAnchor='middle'>{label}</text>
+                ))}
+                {(isFlipped ? ['9','8','7','6','5','4','3','2','1'] : ['九','八','七','六','五','四','三','二','一']).map((label, col) => (
+                  <text key={`bottom-file-${label}`} x={col * pointSize} y={boardHeight + 22} textAnchor='middle'>{label}</text>
+                ))}
               </g>
             </svg>
 
@@ -300,6 +428,9 @@ export const XiangqiBoard: FC = () => {
               const isCheckingAttacker = checkingAttackers.has(key);
               const isCheckedGeneral = checkingTargets.has(key);
               const isCheckPath = checkingPath.has(key);
+              const previewMove = analysisPreview === null ? null : suggestions[analysisPreview];
+              const isAnalysisFrom = previewMove?.from.row === rowIndex && previewMove?.from.col === colIndex;
+              const isAnalysisTo = previewMove?.to.row === rowIndex && previewMove?.to.col === colIndex;
               const attackCount = piece ? (piece.color === 'red' ? black : red) : 0;
               const defenseCount = piece ? (piece.color === 'red' ? red : black) : 0;
               return (
@@ -307,33 +438,38 @@ export const XiangqiBoard: FC = () => {
                   key={key}
                   onClick={() => handlePointClick(rowIndex, colIndex)}
                   className='absolute z-10 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none'
-                  style={{ left: boardPadding + colIndex * pointSize, top: boardPadding + rowIndex * pointSize }}
+                  style={{
+                    left: boardPadding + (isFlipped ? 8 - colIndex : colIndex) * pointSize,
+                    top: boardPadding + (isFlipped ? 9 - rowIndex : rowIndex) * pointSize,
+                  }}
                   title={piece ? `${piece.color === 'red' ? '红' : '黑'}方${labels[piece.type][piece.color]}` : undefined}
                 >
                   {(wasLastFrom || wasLastTo) && <span className={`pointer-events-none absolute h-10 w-10 rounded-full border-2 ${wasLastTo ? 'border-amber-700/80' : 'border-amber-700/45 border-dashed'}`} />}
+                  {isAnalysisFrom && <span className='pointer-events-none absolute h-[48px] w-[48px] rounded-full border-2 border-sky-700/70 border-dashed' />}
+                  {isAnalysisTo && <span className='pointer-events-none absolute h-[30px] w-[30px] rounded-full border-2 border-sky-600/90 bg-sky-200/15' />}
                   {isCheckPath && <span className='pointer-events-none absolute h-7 w-7 rounded-full bg-orange-500/18 ring-1 ring-orange-700/40' />}
-                  {isCheckingAttacker && <span className='pointer-events-none absolute h-[58px] w-[58px] rounded-full border-[3px] border-orange-600/90 shadow-[0_0_10px_rgba(234,88,12,.45)]' />}
-                  {isCheckedGeneral && <span className='pointer-events-none absolute h-[60px] w-[60px] rounded-full border-[3px] border-red-700/95 shadow-[0_0_12px_rgba(185,28,28,.55)]' />}
+                  {isCheckingAttacker && <span className='pointer-events-none absolute h-[50px] w-[50px] rounded-full border-[3px] border-orange-600/90 shadow-[0_0_10px_rgba(234,88,12,.45)]' />}
+                  {isCheckedGeneral && <span className='pointer-events-none absolute h-[52px] w-[52px] rounded-full border-[3px] border-red-700/95 shadow-[0_0_12px_rgba(185,28,28,.55)]' />}
                   {showControl && (red > 0 || black > 0) && !piece && (
                     <span className={`absolute h-3.5 w-3.5 rounded-full border-2 ${contested ? 'border-violet-700 bg-violet-200/75' : red > 0 ? 'border-[#a42b24] bg-red-100/75' : 'border-stone-800 bg-stone-200/80'}`}>
                       {(red + black) > 1 && <span className='absolute -right-2 -top-2 rounded-full bg-[#f2d9ad] px-1 text-[8px] font-bold leading-3 text-stone-800 shadow'>{red + black}</span>}
                     </span>
                   )}
                   {reviewIndex === null && legalMove && !piece && <span className='absolute z-20 h-3 w-3 rounded-full bg-emerald-700 shadow-[0_0_0_3px_rgba(240,211,155,.8)]' />}
-                  {captureTarget && <span className='absolute z-20 h-[46px] w-[46px] rounded-full border-[3px] border-red-700/90 shadow-[0_0_9px_rgba(153,27,27,.45)]' />}
+                  {captureTarget && <span className='absolute z-20 h-[40px] w-[40px] rounded-full border-[3px] border-red-700/90 shadow-[0_0_9px_rgba(153,27,27,.45)]' />}
                   {selectedControl && !legalMove && !piece && <span className='absolute h-5 w-5 rounded-full border-2 border-amber-500 bg-amber-200/25 shadow-[0_0_9px_rgba(245,158,11,.65)]' />}
                   {piece && (
                     <>
-                      {selectedControl && <span className='absolute h-[46px] w-[46px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
-                      <span className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-[20px] font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
+                      {selectedControl && <span className='absolute h-[40px] w-[40px] rounded-full border-[3px] border-amber-400/90 shadow-[0_0_12px_rgba(245,158,11,.55)]' />}
+                      <span className={`relative z-10 flex h-11 w-11 items-center justify-center rounded-full border-[2px] bg-[#f0d39b] font-serif text-[19px] font-bold shadow-[0_3px_5px_rgba(65,36,17,.42),inset_0_0_0_2px_rgba(255,246,218,.5)] ${piece.color === 'red' ? 'border-[#9d2d24] text-[#a5231c]' : 'border-[#342a22] text-[#27221e]'} ${isSelected ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#d9ad70]' : ''}`}>
                         {showControl && attackCount > 0 && (
-                          <span className='pointer-events-none absolute left-1 top-1/2 z-20 -translate-y-1/2' title={`被对方攻击 ${attackCount} 次`}>
+                          <span className='pointer-events-none absolute left-1.5 top-1/2 z-20 -translate-y-1/2' title={`被对方攻击 ${attackCount} 次`}>
                             <CountMarks count={attackCount} kind='attack' />
                           </span>
                         )}
                         <span className='relative z-10'>{labels[piece.type][piece.color]}</span>
                         {showControl && defenseCount > 0 && (
-                          <span className='pointer-events-none absolute right-1 top-1/2 z-20 -translate-y-1/2' title={`被己方保护 ${defenseCount} 次`}>
+                          <span className='pointer-events-none absolute right-1.5 top-1/2 z-20 -translate-y-1/2' title={`被己方保护 ${defenseCount} 次`}>
                             <CountMarks count={defenseCount} kind='defense' />
                           </span>
                         )}
@@ -348,17 +484,93 @@ export const XiangqiBoard: FC = () => {
         </div>
 
         <aside className='flex w-full flex-col gap-3 min-[900px]:w-64 min-[900px]:shrink-0'>
-          <div className='grid grid-cols-2 gap-2 min-[900px]:grid-cols-1'>
-            <button onClick={() => { setEditMode((v) => !v); setSelected(null); }} className={`rounded-lg border px-3 py-2 text-sm transition ${editMode ? 'border-amber-500/70 bg-amber-800/60 text-amber-100' : 'border-stone-600 bg-stone-800 text-stone-200 hover:bg-stone-700'}`}>
-              {editMode ? '结束摆棋' : '摆棋模式'}
+          <div className='flex flex-wrap items-center gap-1.5'>
+            <button
+              onClick={() => { setEditMode((v) => !v); setSelected(null); }}
+              title={editMode ? '结束摆棋模式' : '进入摆棋模式'}
+              className={`inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs font-medium transition ${editMode ? 'border-amber-500/70 bg-amber-900/60 text-amber-100' : 'border-stone-600/80 bg-stone-800/80 text-stone-200 hover:bg-stone-700'}`}
+            >
+              <span className='text-[13px]' aria-hidden='true'>✥</span>
+              {editMode ? '结束摆棋' : '摆棋'}
             </button>
-            <button onClick={undo} disabled={history.length === 0} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40'>
-              悔棋撤销{history.length > 0 ? ` · ${history.length}` : ''}
+            <button
+              onClick={undo}
+              disabled={history.length === 0}
+              title='悔棋'
+              className='inline-flex h-8 items-center gap-1 rounded-md border border-stone-600/80 bg-stone-800/80 px-2.5 text-xs font-medium text-stone-200 transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-35'
+            >
+              <span className='text-sm' aria-hidden='true'>↶</span>
+              悔棋{history.length > 0 ? ` · ${history.length}` : ''}
             </button>
-            <button onClick={reset} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>重置局面</button>
-            <button onClick={() => setShowControl((v) => !v)} className='rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 transition hover:bg-stone-700'>
-              {showControl ? '隐藏势力提示' : '显示势力提示'}
+            <button
+              onClick={reset}
+              title='重置局面'
+              className='inline-flex h-8 items-center gap-1 rounded-md border border-stone-600/80 bg-stone-800/80 px-2.5 text-xs font-medium text-stone-200 transition hover:bg-stone-700'
+            >
+              <span className='text-sm' aria-hidden='true'>↺</span>
+              重置
             </button>
+            <button
+              onClick={() => setShowControl((v) => !v)}
+              title={showControl ? '隐藏势力提示' : '显示势力提示'}
+              className='inline-flex h-8 items-center gap-1 rounded-md border border-stone-600/80 bg-stone-800/80 px-2.5 text-xs font-medium text-stone-200 transition hover:bg-stone-700'
+            >
+              <span className='text-[12px]' aria-hidden='true'>{showControl ? '◉' : '○'}</span>
+              {showControl ? '隐藏势力' : '显示势力'}
+            </button>
+            <button
+              onClick={() => setIsFlipped((v) => !v)}
+              title='翻转棋盘'
+              className='inline-flex h-8 items-center gap-1 rounded-md border border-stone-600/80 bg-stone-800/80 px-2.5 text-xs font-medium text-stone-200 transition hover:bg-stone-700'
+            >
+              <span className='text-sm' aria-hidden='true'>↕</span>
+              翻转
+            </button>
+          </div>
+
+          <div className='rounded-xl border border-sky-900/70 bg-sky-950/20 p-3 text-xs text-stone-300'>
+            <div className='mb-2 flex items-center justify-between gap-2'>
+              <div>
+                <div className='font-medium text-stone-100'>下一步建议</div>
+                <div className='mt-0.5 text-[10px] text-stone-500'>
+                  {moveRecords.length <= 5 ? '开局库优先' : 'Pikafish · MultiPV 3'}
+                  {' · '}
+                  {engineWarm ? '引擎已预热' : engineWarmError ? '引擎预热失败' : '后台预热中'}
+                </div>
+              </div>
+              <button
+                onClick={analyzeCurrentPosition}
+                disabled={analysisBusy || winner !== null || editMode || reviewIndex !== null}
+                className='shrink-0 rounded-md border border-sky-800/80 bg-sky-950/50 px-2 py-1 text-[11px] text-sky-200 hover:bg-sky-900/60 disabled:cursor-not-allowed disabled:opacity-40'
+              >
+                {analysisBusy ? '计算中…' : '分析当前局面'}
+              </button>
+            </div>
+            {analysisError && <div className='mb-2 rounded border border-red-900/70 bg-red-950/30 px-2 py-1.5 text-red-300'>{analysisError}</div>}
+            {suggestions.length === 0 ? (
+              <div className='text-stone-500'>前 3–5 个半回合优先从常见开局库秒回；同时页面打开后已在后台预热 Pikafish。离开开局库后直接复用已加载的引擎。</div>
+            ) : (
+              <div className='space-y-1'>
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={`${suggestion.notation}-${index}`}
+                    onClick={() => setAnalysisPreview(analysisPreview === index ? null : index)}
+                    className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left transition ${analysisPreview === index ? 'bg-sky-900/60' : 'bg-stone-800/65 hover:bg-stone-700'}`}
+                  >
+                    <span>
+                      <span className='mr-1 text-stone-500'>#{index + 1}</span>
+                      <span className='font-medium text-stone-100'>{suggestion.notation}</span>
+                      {suggestion.tags.length > 0 && <span className='ml-2 text-[10px] text-sky-300'>{suggestion.tags.join(' · ')}</span>}
+                      {suggestion.replyNotation && <span className='mt-0.5 block pl-5 text-[10px] text-stone-500'>Pikafish 主变化：对手 {suggestion.replyNotation}</span>}
+                      {suggestion.depth && <span className='mt-0.5 block pl-5 text-[9px] text-stone-600'>搜索深度 D{suggestion.depth}</span>}
+                    </span>
+                    <span className='text-[10px] tabular-nums text-stone-500'>
+                      {suggestion.source === 'book' ? '开局' : suggestion.score >= 999000 ? '胜势' : `${suggestion.score >= 0 ? '+' : ''}${(suggestion.score / 100).toFixed(1)}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className='rounded-xl border border-stone-700/70 bg-stone-900/55 p-3 text-xs text-stone-300'>
